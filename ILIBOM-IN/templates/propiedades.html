@@ -1,0 +1,251 @@
+{% extends "base.html" %}
+{% block title %}Propiedades{% endblock %}
+
+{% block content %}
+<div class="topbar">
+    <div>
+        <div class="page-title">Propiedades</div>
+        <div class="page-sub">Inventario centralizado </div>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center">
+        <form method="GET" class="search-bar" style="margin:0">
+            <svg width="14" height="14" fill="none" stroke="#9ca3af" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input name="q" placeholder="Buscar propiedad..." value="{{ buscar or '' }}">
+        </form>
+        <button class="btn btn-primary" onclick="openModal('modal-propiedad')">+ Registrar propiedad</button>
+    </div>
+</div>
+
+<!-- FILTROS -->
+<div class="filtros">
+    <a href="?filtro=Todas" class="btn {% if filtro=='Todas'      %}btn-primary{% else %}btn-secondary{% endif %} btn-sm">
+        Todas ({{ conteos.total or 0 }})
+    </a>
+    <a href="?filtro=Disponible" class="btn {% if filtro=='Disponible' %}btn-primary{% else %}btn-secondary{% endif %} btn-sm">
+        Disponibles ({{ conteos.disponibles or 0 }})
+    </a>
+    <a href="?filtro=Apartada" class="btn {% if filtro=='Apartada'   %}btn-primary{% else %}btn-secondary{% endif %} btn-sm">
+        Apartadas ({{ conteos.apartadas or 0 }})
+    </a>
+    <a href="?filtro=Vendida" class="btn {% if filtro=='Vendida'    %}btn-primary{% else %}btn-secondary{% endif %} btn-sm">
+        Vendidas ({{ conteos.vendidas or 0 }})
+    </a>
+    <a href="?filtro=Inactiva" class="btn {% if filtro=='Inactiva'   %}btn-primary{% else %}btn-secondary{% endif %} btn-sm">
+        Inactivas ({{ conteos.inactivas or 0 }})
+    </a>
+</div>
+
+<div class="card">
+    {% if propiedades and propiedades|length > 0 %}
+    <div class="table-wrap">
+        <table id="tabla-props">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Propiedad</th>
+                    <th>Tipo</th>
+                    <th>Precio</th>
+                    <th>Captación</th>
+                    <th>Asesor</th>
+                    <th>Estatus</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in propiedades %}
+                <tr>
+                    <td style="font-weight:600;color:#059669">#{{ "%03d"|format(p.id_propiedad) }}</td>
+                    <td>
+                        <div style="font-weight:500">{{ p.nombre }}</div>
+                        <div style="font-size:11.5px;color:#6b7280">{{ p.calle }}, {{ p.colonia or '' }}</div>
+                    </td>
+                    <td>
+                        {% if p.tipo_inmueble == 'Casa' %}
+                        <span class="badge badge-blue">{{ p.tipo_inmueble }}</span>
+                        {% elif p.tipo_inmueble == 'Departamento' %}
+                        <span class="badge badge-purple">{{ p.tipo_inmueble }}</span>
+                        {% else %}
+                        <span class="badge badge-gray">{{ p.tipo_inmueble }}</span>
+                        {% endif %}
+                    </td>
+                    <td style="font-weight:500">
+                        {% if p.precio_venta %}${{ "{:,.0f}".format(p.precio_venta) }}
+                        {% elif p.precio_renta %}${{ "{:,.0f}".format(p.precio_renta) }}/mes
+                        {% else %}—{% endif %}
+                    </td>
+                    <td><span class="badge badge-gray">{{ p.origen_captacion }}</span></td>
+                    <td>{{ p.asesor }}</td>
+                    <td>
+                        {% if p.estatus == 'Disponible' %}<span class="badge badge-green">● {{ p.estatus }}</span>
+                        {% elif p.estatus == 'Apartada'  %}<span class="badge badge-amber">● {{ p.estatus }}</span>
+                        {% elif p.estatus == 'Vendida'   %}<span class="badge badge-red">● {{ p.estatus }}</span>
+                        {% else %}<span class="badge badge-gray">● {{ p.estatus }}</span>{% endif %}
+                    </td>
+                    <td>
+                        <div class="td-actions">
+                            {% if p.estatus == 'Inactiva' %}
+                            <form method="POST" action="{{ url_for('reactivar_propiedad', id=p.id_propiedad) }}" style="display:inline">
+                                <button type="submit" class="btn btn-primary btn-sm">Reactivar</button>
+                            </form>
+                            {% else %}
+                            <a href="{{ url_for('fotos_propiedad', id=p.id_propiedad) }}" class="btn btn-secondary btn-sm">Fotos</a>
+                            <a href="{{ url_for('historial_propiedad', id=p.id_propiedad) }}" class="btn btn-secondary btn-sm">Historial</a>
+                            <a href="{{ url_for('editar_propiedad', id=p.id_propiedad) }}" class="btn btn-secondary btn-sm">Editar</a>
+                            {% if p.estatus != 'Vendida' %}
+                            <form method="POST" action="{{ url_for('baja_propiedad', id=p.id_propiedad) }}" style="display:inline"
+                                  onsubmit="return confirm('¿Dar de baja la propiedad {{ p.nombre }}?');">
+                                <input type="hidden" name="motivo" value="Baja desde catálogo">
+                                <button type="submit" class="btn btn-danger btn-sm">Baja</button>
+                            </form>
+                            {% endif %}
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div style="text-align:center; padding:60px 20px; color:#9ca3af">
+        <div style="font-size:48px; opacity:0.4">🏠</div>
+        <div style="margin-top:12px">No hay propiedades registradas todavía.</div>
+        <button class="btn btn-primary" style="margin-top:20px" onclick="openModal('modal-propiedad')">
+            + Registrar la primera
+        </button>
+    </div>
+    {% endif %}
+</div>
+
+<div class="info-banner info-banner-green">
+    <strong>Documentos:</strong> Formatos PDF, JPG y PNG · Límite 15 MB por archivo · Cifrado AES-256
+</div>
+
+<!-- ══ MODAL: Registrar Propiedad ══ -->
+<div class="modal-overlay" id="modal-propiedad">
+    <div class="modal-box">
+        <div class="modal-title">Registrar propiedad</div>
+        <form method="POST" action="{{ url_for('nueva_propiedad') }}" enctype="multipart/form-data">
+            <div class="form-grid">
+
+                <div class="form-group">
+                    <label>Nombre / Descripción *</label>
+                    <input type="text" name="nombre" placeholder="Ej. Casa Jardines Norte" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Tipo de inmueble *</label>
+                    <select name="tipo_inmueble" required>
+                        <option value="Casa">Casa</option>
+                        <option value="Departamento">Departamento</option>
+                        <option value="Local comercial">Local comercial</option>
+                        <option value="Terreno">Terreno</option>
+                        <option value="Bodega">Bodega</option>
+                        <option value="Oficina">Oficina</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Precio de venta (MXN)</label>
+                    <input type="number" step="0.01" name="precio_venta" placeholder="0">
+                </div>
+
+                <div class="form-group">
+                    <label>Precio de renta (MXN)</label>
+                    <input type="number" step="0.01" name="precio_renta" placeholder="0">
+                </div>
+
+                <div class="form-group form-span2">
+                    <label>Calle *</label>
+                    <input type="text" name="calle" placeholder="Av. Insurgentes" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Número exterior</label>
+                    <input type="text" name="num_ext" placeholder="450">
+                </div>
+
+                <div class="form-group">
+                    <label>Número interior</label>
+                    <input type="text" name="num_int" placeholder="A-12">
+                </div>
+
+                <div class="form-group">
+                    <label>Colonia</label>
+                    <input type="text" name="colonia" placeholder="Las Palmas">
+                </div>
+
+                <div class="form-group">
+                    <label>Municipio</label>
+                    <input type="text" name="municipio" value="León">
+                </div>
+
+                <div class="form-group">
+                    <label>Estado</label>
+                    <input type="text" name="estado" value="Guanajuato">
+                </div>
+
+                <div class="form-group">
+                    <label>Código postal</label>
+                    <input type="text" name="cp" maxlength="5" placeholder="37000">
+                </div>
+
+                <div class="form-group">
+                    <label>Metros cuadrados</label>
+                    <input type="number" step="0.01" name="metros" placeholder="0">
+                </div>
+
+                <div class="form-group">
+                    <label>Recámaras</label>
+                    <input type="number" name="recamaras" value="0" min="0">
+                </div>
+
+                <div class="form-group">
+                    <label>Baños</label>
+                    <input type="number" name="banos" value="0" min="0">
+                </div>
+
+                <div class="form-group">
+                    <label>Estacionamientos</label>
+                    <input type="number" name="estacionamientos" value="0" min="0">
+                </div>
+
+                <div class="form-group">
+                    <label>Origen de captación *</label>
+                    <select name="origen_captacion" required>
+                        <option value="Redes sociales">Redes sociales</option>
+                        <option value="Recomendación">Recomendación</option>
+                        <option value="Lona">Lona / exterior</option>
+                        <option value="Portal web">Portal web</option>
+                        <option value="Referido">Referido</option>
+                        <option value="Otro">Otro</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Asesor asignado *</label>
+                    <select name="id_asesor" required>
+                        {% for a in asesores %}
+                        <option value="{{ a.id_usuario }}">{{ a.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group form-span2">
+                    <label>Notas adicionales</label>
+                    <textarea name="notas" placeholder="Características especiales, condiciones..."></textarea>
+                </div>
+
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('modal-propiedad')">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Guardar propiedad</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

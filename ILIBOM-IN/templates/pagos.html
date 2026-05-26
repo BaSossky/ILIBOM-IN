@@ -1,0 +1,555 @@
+{% extends "base.html" %}
+{% block title %}Pagos{% endblock %}
+
+{% block content %}
+<div class="topbar">
+    <div>
+        <div class="page-title">Control de Pagos</div>
+        <div class="page-sub">Rentas, depósitos y apartados </div>
+    </div>
+    <div style="display:flex; gap:10px">
+        <button class="btn btn-secondary" onclick="openModal('modal-deposito')">+ Registrar depósito</button>
+        <button class="btn btn-primary" onclick="openModal('modal-pago')" {% if not pagos %}disabled{% endif %}>+ Registrar pago de renta</button>
+    </div>
+</div>
+
+<!-- TABS -->
+<div style="display:flex; gap:8px; margin-bottom:20px; border-bottom:2px solid #e5e7eb">
+    <button onclick="cambiarTab('tab-pagos')" id="btn-tab-pagos"
+            class="btn btn-primary btn-sm" style="border-radius:8px 8px 0 0; margin-bottom:-2px">
+        Pagos de renta ({{ pagos|length }})
+    </button>
+    <button onclick="cambiarTab('tab-depositos')" id="btn-tab-depositos"
+            class="btn btn-secondary btn-sm" style="border-radius:8px 8px 0 0; margin-bottom:-2px">
+        Depósitos / Apartados ({{ depositos|length }})
+    </button>
+</div>
+
+<!-- ═══ TAB: PAGOS DE RENTA ═══ -->
+<div id="tab-pagos">
+    <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr)">
+        <div class="kpi-card">
+            <div class="kpi-label">Total pagos</div>
+            <div class="kpi-value">{{ kpis_pagos.total or 0 }}</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Cobrado</div>
+            <div class="kpi-value" style="color:#059669">${{ "{:,.0f}".format(kpis_pagos.monto_cobrado or 0) }}</div>
+            <div class="kpi-delta">{{ kpis_pagos.completados or 0 }} pagos</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Por cobrar</div>
+            <div class="kpi-value" style="color:#d97706">${{ "{:,.0f}".format(kpis_pagos.monto_pendiente or 0) }}</div>
+            <div class="kpi-delta">{{ (kpis_pagos.pendientes or 0) + (kpis_pagos.atrasados or 0) }} pagos</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Atrasados</div>
+            <div class="kpi-value" style="color:#dc2626">{{ kpis_pagos.atrasados or 0 }}</div>
+            <div class="kpi-delta" style="color:#dc2626">Requieren cobro</div>
+        </div>
+    </div>
+
+    <!-- Leyenda y filtros -->
+    <div style="display:flex; justify-content:space-between; gap:16px; margin-bottom:20px; padding:12px 16px; background:#fff; border-radius:10px; border:1px solid #e5e7eb; flex-wrap:wrap">
+        <div style="display:flex; gap:16px; align-items:center; flex-wrap:wrap">
+            <span style="font-size:12.5px; color:#065f46; font-weight:500">Semáforo:</span>
+            <span class="badge badge-green"><span class="dot dot-green"></span>Completado</span>
+            <span class="badge badge-amber"><span class="dot dot-amber"></span>Pendiente</span>
+            <span class="badge badge-red"><span class="dot dot-red"></span>Atrasado</span>
+        </div>
+        <div style="display:flex; gap:6px">
+            <a href="?filtro_pago=Todos" class="btn {% if filtro_pago == 'Todos' %}btn-primary{% else %}btn-secondary{% endif %} btn-sm">Todos</a>
+            <a href="?filtro_pago=Pendiente" class="btn {% if filtro_pago == 'Pendiente' %}btn-primary{% else %}btn-secondary{% endif %} btn-sm">Pendientes</a>
+            <a href="?filtro_pago=Atrasado" class="btn {% if filtro_pago == 'Atrasado' %}btn-primary{% else %}btn-secondary{% endif %} btn-sm">Atrasados</a>
+            <a href="?filtro_pago=Completado" class="btn {% if filtro_pago == 'Completado' %}btn-primary{% else %}btn-secondary{% endif %} btn-sm">Completados</a>
+        </div>
+    </div>
+
+    <div class="card">
+        {% if pagos and pagos|length > 0 %}
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Contrato</th>
+                        <th>Cliente / Propiedad</th>
+                        <th>Mes</th>
+                        <th>Esperado</th>
+                        <th>Recibido</th>
+                        <th>Límite</th>
+                        <th>Pagado</th>
+                        <th>Días</th>
+                        <th>Estatus</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in pagos %}
+                    <tr>
+                        <td style="font-weight:500; color:#059669">{{ p.folio }}</td>
+                        <td>
+                            <div style="font-weight:500">{{ p.cliente }}</div>
+                            <div style="font-size:11.5px; color:#6b7280">{{ p.propiedad }}</div>
+                        </td>
+                        <td>{{ p.mes_correspondiente.strftime('%b %Y') if p.mes_correspondiente }}</td>
+                        <td style="font-weight:500">${{ "{:,.0f}".format(p.monto_esperado) }}</td>
+                        <td>{% if p.monto_recibido %}${{ "{:,.0f}".format(p.monto_recibido) }}{% else %}—{% endif %}</td>
+                        <td>{{ p.fecha_limite.strftime('%d/%m/%Y') if p.fecha_limite }}</td>
+                        <td>{% if p.fecha_pago %}{{ p.fecha_pago.strftime('%d/%m/%Y') }}{% else %}—{% endif %}</td>
+                        <td>
+                            {% if p.dias_retraso and p.dias_retraso > 0 %}
+                            <span style="color:#dc2626; font-weight:600">+{{ p.dias_retraso }}</span>
+                            {% else %}
+                            <span style="color:#059669">0</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if p.estatus == 'Completado' %}<span class="badge badge-green"><span class="dot dot-green"></span>{{ p.estatus }}</span>
+                            {% elif p.estatus == 'Pendiente' %}<span class="badge badge-amber"><span class="dot dot-amber"></span>{{ p.estatus }}</span>
+                            {% elif p.estatus == 'Atrasado' %}<span class="badge badge-red"><span class="dot dot-red"></span>{{ p.estatus }}</span>
+                            {% elif p.estatus == 'Parcial' %}<span class="badge badge-amber">Parcial</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="td-actions">
+                                {% if p.estatus in ['Pendiente','Atrasado','Parcial'] %}
+                                <button type="button" class="btn btn-primary btn-sm"
+                                        onclick="abrirModalPago({{ p.id_pago }}, '{{ p.cliente }}', {{ p.monto_esperado }})">
+                                    Registrar
+                                </button>
+                                {% endif %}
+
+                                {% if p.comprobante %}
+                                <button type="button" class="btn btn-secondary btn-sm"
+                                        onclick="verComprobante('{{ p.comprobante }}', 'Pago de {{ p.cliente }}', '{{ p.folio }}', {{ p.monto_recibido or 0 }})">
+                                    📎 Ver
+                                </button>
+                                {% elif p.estatus == 'Completado' %}
+                                <span style="font-size:11px; color:#9ca3af">Sin comprobante</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div style="text-align:center; padding:60px 20px; color:#9ca3af">
+            <div style="font-size:48px; opacity:0.4">PAGOS/DEPOSITOS</div>
+            <div style="margin-top:12px">No hay pagos de renta registrados.</div>
+            <div style="margin-top:6px; font-size:12.5px">Los pagos se generan automáticamente al crear un contrato de arrendamiento.</div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="info-banner info-banner-amber" style="margin-top:16px">
+        <strong>RECORDATORIO: </strong> El sistema marca automáticamente como "Atrasado" los pagos cuya fecha límite ya pasó.
+    </div>
+</div>
+
+<!-- ═══ TAB: DEPÓSITOS ═══ -->
+<div id="tab-depositos" style="display:none">
+    <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr)">
+        <div class="kpi-card">
+            <div class="kpi-label">Total depósitos</div>
+            <div class="kpi-value">{{ kpis_deps.total or 0 }}</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Validados</div>
+            <div class="kpi-value" style="color:#059669">{{ kpis_deps.validados or 0 }}</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Por validar</div>
+            <div class="kpi-value" style="color:#d97706">{{ kpis_deps.pendientes or 0 }}</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Monto total</div>
+            <div class="kpi-value" style="color:#059669">${{ "{:,.0f}".format(kpis_deps.monto_total or 0) }}</div>
+        </div>
+    </div>
+
+    <div style="display:flex; gap:6px; margin-bottom:16px">
+        <a href="?filtro_dep=Todos" class="btn {% if filtro_dep == 'Todos' %}btn-primary{% else %}btn-secondary{% endif %} btn-sm">Todos</a>
+        <a href="?filtro_dep=Pendientes" class="btn {% if filtro_dep == 'Pendientes' %}btn-primary{% else %}btn-secondary{% endif %} btn-sm">Por validar</a>
+        <a href="?filtro_dep=Validados" class="btn {% if filtro_dep == 'Validados' %}btn-primary{% else %}btn-secondary{% endif %} btn-sm">Validados</a>
+    </div>
+
+    <div class="card">
+        {% if depositos and depositos|length > 0 %}
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Cliente</th>
+                        <th>Propiedad</th>
+                        <th>Monto</th>
+                        <th>Fecha</th>
+                        <th>Registró</th>
+                        <th>Validó</th>
+                        <th>Estatus</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for d in depositos %}
+                    <tr {% if not d.validado %}style="background:#fffbeb" {% endif %}>
+                        <td style="font-weight:500">{{ d.cliente }}</td>
+                        <td>{{ d.propiedad }}</td>
+                        <td style="font-weight:600; color:#059669">${{ "{:,.0f}".format(d.monto) }}</td>
+                        <td>{{ d.fecha_deposito.strftime('%d/%m/%Y') if d.fecha_deposito }}</td>
+                        <td style="font-size:12.5px">{{ d.registrado_por_nombre }}</td>
+                        <td style="font-size:12.5px">{{ d.validado_por_nombre or '—' }}</td>
+                        <td>
+                            {% if d.validado %}
+                            <span class="badge badge-green">✓ Validado</span>
+                            {% else %}
+                            <span class="badge badge-amber"> Por validar</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- ⬇ Aquí es donde pegas el bloque nuevo ⬇ -->
+                        <td>
+                            <div class="td-actions">
+                                {% if d.comprobante %}
+                                <button type="button" class="btn btn-secondary btn-sm"
+                                        onclick="verComprobante('{{ d.comprobante }}', 'Depósito de {{ d.cliente }}', '—', {{ d.monto }})">
+                                     Ver
+                                </button>
+                                {% endif %}
+
+                                {% if not d.validado %}
+                                {% if session.rol == 'Administrador' %}
+                                <form method="POST" action="{{ url_for('validar_deposito', id=d.id_deposito) }}" style="display:inline">
+                                    <button type="submit" class="btn btn-primary btn-sm">✓ Validar</button>
+                                </form>
+                                {% endif %}
+                                <form method="POST" action="{{ url_for('eliminar_deposito', id=d.id_deposito) }}" style="display:inline"
+                                      onsubmit="return confirm('¿Eliminar este depósito? La propiedad volverá a Disponible.');">
+                                    <button type="submit" class="btn btn-danger btn-sm">Eliminar</button>
+                                </form>
+                                {% else %}
+                                <span style="font-size:12px; color:#059669">✓ Listo</span>
+                                {% endif %}
+                            </div>
+                        </td>
+
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div style="text-align:center; padding:60px 20px; color:#9ca3af">
+            <div style="font-size:48px; opacity:0.4">DEPOSITOS</div>
+            <div style="margin-top:12px">No hay depósitos registrados.</div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="info-banner info-banner-green" style="margin-top:16px">
+        <strong>NOTA:</strong> Solo el Administrador puede validar depósitos. La validación habilita la generación del contrato.
+    </div>
+</div>
+
+<!-- ═══ MODAL: REGISTRAR PAGO ═══ -->
+<div class="modal-overlay" id="modal-pago">
+    <div class="modal-box" style="max-width:600px">
+        <div class="modal-title">Registrar pago de renta </div>
+
+        <form method="POST" action="{{ url_for('registrar_pago') }}" enctype="multipart/form-data">
+
+            <!-- Selección del pago a registrar -->
+            <div class="form-group form-span2">
+                <label>Selecciona el pago a registrar *</label>
+                <select name="id_pago" id="select-pago" required onchange="seleccionarPago()">
+                    <option value="">— Elige una mensualidad pendiente —</option>
+                    {% for p in pagos %}
+                    {% if p.estatus in ['Pendiente','Atrasado','Parcial'] %}
+                    <option value="{{ p.id_pago }}"
+                            data-cliente="{{ p.cliente }}"
+                            data-propiedad="{{ p.propiedad }}"
+                            data-folio="{{ p.folio }}"
+                            data-mes="{{ p.mes_correspondiente.strftime('%B %Y') if p.mes_correspondiente }}"
+                            data-monto="{{ p.monto_esperado }}"
+                            data-limite="{{ p.fecha_limite.strftime('%d/%m/%Y') if p.fecha_limite }}"
+                            data-estatus="{{ p.estatus }}"
+                            data-recibido="{{ p.monto_recibido or 0 }}">
+                        {{ p.cliente }} — {{ p.propiedad }} ({{ p.mes_correspondiente.strftime('%b %Y') if p.mes_correspondiente }}) — ${{ "{:,.0f}".format(p.monto_esperado) }}
+                        {% if p.estatus == 'Atrasado' %} ⚠️ ATRASADO{% endif %}
+                    </option>
+                    {% endif %}
+                    {% endfor %}
+                </select>
+                <small style="font-size:11.5px; color:#6b7280; margin-top:4px">
+                    Solo aparecen pagos pendientes, atrasados o parciales.
+                </small>
+            </div>
+
+            <!-- Tarjeta con info del pago seleccionado -->
+            <div id="info-pago" style="display:none; background:#f0fdf4; border:1px solid #a7f3d0; border-radius:10px; padding:16px; margin:16px 0">
+                <div style="font-size:11px; color:#065f46; text-transform:uppercase; letter-spacing:.5px; margin-bottom:10px; font-weight:600">
+                    Datos del pago
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; font-size:13px">
+                    <div>
+                        <div style="font-size:10.5px; color:#6b7280; text-transform:uppercase">Cliente</div>
+                        <div style="font-weight:600; margin-top:2px" id="info-cliente">—</div>
+                    </div>
+                    <div>
+                        <div style="font-size:10.5px; color:#6b7280; text-transform:uppercase">Propiedad</div>
+                        <div style="font-weight:500; margin-top:2px" id="info-propiedad">—</div>
+                    </div>
+                    <div>
+                        <div style="font-size:10.5px; color:#6b7280; text-transform:uppercase">Contrato</div>
+                        <div style="font-weight:500; color:#059669; margin-top:2px" id="info-folio">—</div>
+                    </div>
+                    <div>
+                        <div style="font-size:10.5px; color:#6b7280; text-transform:uppercase">Mes a pagar</div>
+                        <div style="font-weight:500; margin-top:2px" id="info-mes">—</div>
+                    </div>
+                    <div>
+                        <div style="font-size:10.5px; color:#6b7280; text-transform:uppercase">Fecha límite</div>
+                        <div style="font-weight:500; margin-top:2px" id="info-limite">—</div>
+                    </div>
+                    <div>
+                        <div style="font-size:10.5px; color:#6b7280; text-transform:uppercase">Estatus actual</div>
+                        <div style="margin-top:2px" id="info-estatus">—</div>
+                    </div>
+                    <div class="form-span2" style="grid-column:1/-1; padding-top:10px; border-top:1px dashed #a7f3d0">
+                        <div style="font-size:10.5px; color:#6b7280; text-transform:uppercase">Monto esperado</div>
+                        <div style="font-weight:700; font-size:22px; color:#059669; margin-top:2px">
+                            $<span id="info-monto">—</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-grid">
+                <div class="form-group form-span2">
+                    <label>Monto recibido (MXN) *</label>
+                    <input type="number" step="0.01" name="monto_recibido" id="input-monto" required min="0.01" placeholder="0.00">
+                    <small style="font-size:11.5px; color:#6b7280; margin-top:4px">
+                        Si el monto es menor al esperado, se registrará como pago <strong>parcial</strong>.
+                    </small>
+                </div>
+                <div class="form-group form-span2">
+                    <label>Comprobante (opcional, PDF/JPG/PNG)</label>
+                    <input type="file" name="comprobante" accept=".pdf,.jpg,.jpeg,.png">
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('modal-pago')">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Registrar pago</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ═══ MODAL: NUEVO DEPÓSITO ═══ -->
+<div class="modal-overlay" id="modal-deposito">
+    <div class="modal-box">
+        <div class="modal-title">Registrar depósito / apartado</div>
+        <form method="POST" action="{{ url_for('nuevo_deposito') }}" enctype="multipart/form-data">
+            <div class="form-grid">
+
+                <div class="form-group form-span2">
+                    <label>Propiedad *</label>
+                    <select name="id_propiedad" required>
+                        <option value="">— Seleccionar propiedad disponible —</option>
+                        {% for p in propiedades %}
+                        <option value="{{ p.id_propiedad }}">
+                            {{ p.nombre }}
+                            {% if p.precio_venta %}— ${{ "{:,.0f}".format(p.precio_venta) }}{% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group form-span2">
+                    <label>Cliente *</label>
+                    <select name="id_cliente" required>
+                        <option value="">— Seleccionar cliente —</option>
+                        {% for c in clientes %}
+                        <option value="{{ c.id_cliente }}">{{ c.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Monto del depósito (MXN) *</label>
+                    <input type="number" step="0.01" name="monto" required min="0.01" placeholder="50000.00">
+                </div>
+
+                <div class="form-group">
+                    <label>Fecha del depósito *</label>
+                    <input type="date" name="fecha" required>
+                </div>
+
+                <!-- ⬇ NUEVO: Campo de comprobante ⬇ -->
+                <div class="form-group form-span2">
+                    <label>Comprobante del depósito (opcional)</label>
+                    <input type="file" name="comprobante" accept=".pdf,.jpg,.jpeg,.png,.webp"
+                           style="padding:8px; background:#fff; border:1px dashed #d1d5db; border-radius:8px">
+                    <small style="font-size:11.5px; color:#6b7280; margin-top:4px">
+                        Formatos aceptados: PDF, JPG, PNG, WEBP · Máximo 15 MB
+                    </small>
+                </div>
+
+                <div class="form-group form-span2">
+                    <label>Notas</label>
+                    <textarea name="notas" placeholder="Banco, referencia, observaciones..."></textarea>
+                </div>
+
+            </div>
+
+            <div class="info-banner info-banner-amber" style="margin-top:12px">
+                 Al registrar el depósito, la propiedad pasa a estar <strong>Apartada</strong>.
+                El depósito debe ser <strong>validado por el Administrador</strong> antes de poder generar el contrato.
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('modal-deposito')">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Registrar depósito</button>
+            </div>
+        </form>
+    </div>
+</div>
+<!-- ═══ MODAL: VER COMPROBANTE ═══ -->
+<div class="modal-overlay" id="modal-comprobante">
+    <div class="modal-box" style="max-width:800px">
+        <div class="modal-title"> Comprobante de pago</div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; margin-bottom:16px; padding:14px; background:#f0fdf4; border-radius:10px">
+            <div>
+                <div style="font-size:10.5px; color:#6b7280; text-transform:uppercase">Concepto</div>
+                <div style="font-weight:600; margin-top:2px" id="comp-concepto">—</div>
+            </div>
+            <div>
+                <div style="font-size:10.5px; color:#6b7280; text-transform:uppercase">Folio</div>
+                <div style="font-weight:500; color:#059669; margin-top:2px" id="comp-folio">—</div>
+            </div>
+            <div>
+                <div style="font-size:10.5px; color:#6b7280; text-transform:uppercase">Monto</div>
+                <div style="font-weight:700; color:#059669; margin-top:2px" id="comp-monto">—</div>
+            </div>
+        </div>
+
+        <!-- Visor del comprobante -->
+        <div id="comp-visor" style="text-align:center; min-height:400px; background:#f9fafb; border-radius:10px; padding:20px; border:1px solid #e5e7eb">
+            <!-- Aquí se inyecta la imagen o el PDF -->
+        </div>
+
+        <div class="modal-footer">
+            <a id="comp-descargar" href="#" download class="btn btn-secondary">⬇ Descargar</a>
+            <a id="comp-abrir" href="#" target="_blank" class="btn btn-secondary">↗ Abrir en nueva pestaña</a>
+            <button type="button" class="btn btn-primary" onclick="closeModal('modal-comprobante')">Cerrar</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    function cambiarTab(tabId) {
+        document.getElementById('tab-pagos').style.display = (tabId === 'tab-pagos') ? 'block' : 'none';
+        document.getElementById('tab-depositos').style.display = (tabId === 'tab-depositos') ? 'block' : 'none';
+        document.getElementById('btn-tab-pagos').className = (tabId === 'tab-pagos') ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
+        document.getElementById('btn-tab-pagos').style.cssText = 'border-radius:8px 8px 0 0; margin-bottom:-2px';
+        document.getElementById('btn-tab-depositos').className = (tabId === 'tab-depositos') ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
+        document.getElementById('btn-tab-depositos').style.cssText = 'border-radius:8px 8px 0 0; margin-bottom:-2px';
+    }
+
+    function abrirModalPago(idPago, cliente, monto) {
+        // Pre-selecciona el pago en el dropdown si viene desde la tabla
+        const select = document.getElementById('select-pago');
+        select.value = idPago;
+        seleccionarPago();
+        openModal('modal-pago');
+    }
+
+    function seleccionarPago() {
+        const sel = document.getElementById('select-pago');
+        const opt = sel.options[sel.selectedIndex];
+        const info = document.getElementById('info-pago');
+
+        if (!opt.value) {
+            info.style.display = 'none';
+            document.getElementById('input-monto').value = '';
+            return;
+        }
+
+        const cliente = opt.dataset.cliente;
+        const propiedad = opt.dataset.propiedad;
+        const folio = opt.dataset.folio;
+        const mes = opt.dataset.mes;
+        const limite = opt.dataset.limite;
+        const estatus = opt.dataset.estatus;
+        const monto = parseFloat(opt.dataset.monto);
+        const recibido = parseFloat(opt.dataset.recibido || 0);
+
+        document.getElementById('info-cliente').textContent = cliente;
+        document.getElementById('info-propiedad').textContent = propiedad;
+        document.getElementById('info-folio').textContent = folio;
+        document.getElementById('info-mes').textContent = mes;
+        document.getElementById('info-limite').textContent = limite;
+        document.getElementById('info-monto').textContent = monto.toLocaleString('es-MX', { minimumFractionDigits: 2 });
+
+        // Badge de estatus con colores
+        let badgeHtml = '';
+        if (estatus === 'Pendiente') {
+            badgeHtml = '<span class="badge badge-amber">● Pendiente</span>';
+        } else if (estatus === 'Atrasado') {
+            badgeHtml = '<span class="badge badge-red">● Atrasado</span>';
+        } else if (estatus === 'Parcial') {
+            badgeHtml = '<span class="badge badge-amber">Parcial — falta $' + (monto - recibido).toLocaleString('es-MX', { minimumFractionDigits: 2 }) + '</span>';
+        }
+        document.getElementById('info-estatus').innerHTML = badgeHtml;
+
+        // Pre-llena el monto a recibir (si es parcial, sugiere lo que falta)
+        if (estatus === 'Parcial' && recibido > 0) {
+            document.getElementById('input-monto').value = (monto - recibido).toFixed(2);
+        } else {
+            document.getElementById('input-monto').value = monto.toFixed(2);
+        }
+
+        info.style.display = 'block';
+    }
+
+    function verComprobante(ruta, concepto, folio, monto) {
+        document.getElementById('comp-concepto').textContent = concepto;
+        document.getElementById('comp-folio').textContent = folio;
+        document.getElementById('comp-monto').textContent = '$' + monto.toLocaleString('es-MX', { minimumFractionDigits: 2 });
+
+        const visor = document.getElementById('comp-visor');
+        const linkAbrir = document.getElementById('comp-abrir');
+        const linkDesc = document.getElementById('comp-descargar');
+        linkAbrir.href = ruta;
+        linkDesc.href = ruta;
+
+        // Detectar si es imagen o PDF
+        const ext = ruta.split('.').pop().toLowerCase();
+
+        if (['jpg', 'jpeg', 'png', 'webp'].includes(ext)) {
+            visor.innerHTML = `
+      <img src="${ruta}" alt="Comprobante"
+           style="max-width:100%; max-height:500px; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.1)">
+    `;
+        } else if (ext === 'pdf') {
+            visor.innerHTML = `
+      <iframe src="${ruta}"
+              style="width:100%; height:500px; border:none; border-radius:8px"></iframe>
+    `;
+        } else {
+            visor.innerHTML = `
+      <div style="padding:60px 20px; color:#6b7280">
+        <div style="font-size:48px">Vista</div>
+        <div style="margin-top:12px">Vista previa no disponible para este formato.</div>
+        <div style="margin-top:6px; font-size:12.5px">Usa los botones de descargar o abrir en nueva pestaña.</div>
+      </div>
+    `;
+        }
+
+        openModal('modal-comprobante');
+    }
+</script>
+{% endblock %}

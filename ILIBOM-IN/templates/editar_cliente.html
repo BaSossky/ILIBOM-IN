@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Editar cliente{% endblock %}
+
+{% block content %}
+<div class="topbar">
+    <div>
+        <div class="page-title">Editar cliente</div>
+        <div class="page-sub">{{ cliente.nombre }} · CRM</div>
+    </div>
+    <a href="{{ url_for('clientes') }}" class="btn btn-secondary">← Volver al CRM</a>
+</div>
+
+<div class="card">
+    <form method="POST">
+        <div class="form-grid">
+
+            <div class="form-group">
+                <label>Nombre *</label>
+                <input type="text" name="nombre" value="{{ cliente.nombre }}" required>
+            </div>
+
+            <div class="form-group">
+                <label>Apellidos</label>
+                <input type="text" name="apellido" value="{{ cliente.apellido_paterno or '' }}">
+            </div>
+
+            <div class="form-group">
+                <label>Teléfono (10 dígitos) *</label>
+                <input type="tel" name="telefono" value="{{ cliente.telefono }}" maxlength="10" required>
+            </div>
+
+            <div class="form-group">
+                <label>Correo electrónico</label>
+                <input type="email" name="email" value="{{ cliente.email or '' }}">
+            </div>
+
+            <div class="form-group">
+                <label>Tipo de inmueble de interés</label>
+                <select name="tipo_interes">
+                    {% for t in ['Casa','Departamento','Local comercial','Terreno','Otro'] %}
+                    <option value="{{ t }}" {% if cliente.tipo_inmueble_interes == t %}selected{% endif %}>{{ t }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Estatus del lead *</label>
+                <select name="estatus_lead" required>
+                    {% for s in ['Nuevo','Sin contactar','Contactado','Cita agendada','Activo','Ganado','Perdido'] %}
+                    <option value="{{ s }}" {% if cliente.estatus_lead == s %}selected{% endif %}>{{ s }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Presupuesto mínimo</label>
+                <input type="number" step="0.01" name="pres_min" value="{{ cliente.presupuesto_min or '' }}">
+            </div>
+
+            <div class="form-group">
+                <label>Presupuesto máximo</label>
+                <input type="number" step="0.01" name="pres_max" value="{{ cliente.presupuesto_max or '' }}">
+            </div>
+
+            <div class="form-group form-span2">
+                <label>Zonas de interés</label>
+                <input type="text" name="zonas" value="{{ cliente.zonas_interes or '' }}">
+            </div>
+
+            <div class="form-group">
+                <label>Asesor asignado</label>
+                <select name="id_asesor">
+                    <option value="">— Sin asignar —</option>
+                    {% for a in asesores %}
+                    <option value="{{ a.id_usuario }}" {% if cliente.id_asesor == a.id_usuario %}selected{% endif %}>{{ a.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group form-span2">
+                <label>Bitácora de seguimiento</label>
+                <textarea name="notas">{{ cliente.notas or '' }}</textarea>
+            </div>
+
+        </div>
+
+        <div style="display:flex; gap:10px; margin-top:20px; justify-content:flex-end">
+            <a href="{{ url_for('clientes') }}" class="btn btn-secondary">Cancelar</a>
+            <button type="submit" class="btn btn-primary">Guardar cambios</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ILIBOM-IN — Iniciar sesión</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+  <style>
+    body { background:#064e3b; display:flex; align-items:center; justify-content:center; min-height:100vh; }
+    .login-card { background:#fff; border-radius:20px; padding:48px 40px; width:380px; box-shadow:0 40px 80px rgba(0,0,0,.25); }
+    .login-logo { font-family:'Syne',sans-serif; font-size:26px; font-weight:700; color:#059669; letter-spacing:-1px; margin-bottom:6px; }
+    .login-logo span { color:#064e3b; }
+    .login-sub  { font-size:13px; color:#6b7280; margin-bottom:32px; }
+    .login-btn  { width:100%; background:#059669; color:#fff; border:none; border-radius:10px; padding:13px; font-size:15px; font-weight:600; cursor:pointer; margin-top:24px; font-family:'DM Sans',sans-serif; transition:background .2s; }
+    .login-btn:hover { background:#047857; }
+    .login-footer { font-size:11.5px; color:#9ca3af; text-align:center; margin-top:20px; }
+    .form-mb { margin-bottom:16px; }
+    .error-msg { background:#fee2e2; color:#991b1b; border-radius:8px; padding:10px 14px; font-size:13px; margin-bottom:16px; }
+  </style>
+</head>
+<body>
+  <div class="login-card">
+    <div class="login-logo">ILIBOM<span>-IN</span></div>
+    <div class="login-sub">Sistema de Gestión Inmobiliaria · EXAUMY</div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for cat, msg in messages %}
+          <div class="error-msg">{{ msg }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <form method="POST" action="{{ url_for('login') }}">
+      <div class="form-mb">
+        <div class="form-group">
+          <label>Correo electrónico</label>
+          <input type="email" name="email" placeholder="usuario@exaumy.com" required>
+        </div>
+      </div>
+      <div class="form-mb">
+        <div class="form-group">
+          <label>Contraseña</label>
+          <input type="password" name="password" placeholder="••••••••" required>
+        </div>
+      </div>
+
+      <button type="submit" class="login-btn">Iniciar sesión</button>
+    </form>
+
+    <div class="login-footer">
+      · Autenticación segura · AES-256<br>
+      <small>Prueba: admin@exaumy.com / 12345</small>
+    </div>
+  </div>
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Historial de propiedad{% endblock %}
+
+{% block content %}
+<div class="topbar">
+    <div>
+        <div class="page-title">Historial de estatus</div>
+        <div class="page-sub">{{ prop.nombre }} </div>
+    </div>
+    <a href="{{ url_for('propiedades') }}" class="btn btn-secondary">← Volver al inventario</a>
+</div>
+
+<div class="card">
+    {% if historial and historial|length > 0 %}
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Fecha y hora</th>
+                    <th>Estatus anterior</th>
+                    <th>Estatus nuevo</th>
+                    <th>Motivo</th>
+                    <th>Usuario</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for h in historial %}
+                <tr>
+                    <td>{{ h.fecha_cambio.strftime('%d/%m/%Y %H:%M') if h.fecha_cambio else '—' }}</td>
+                    <td>
+                        {% if h.estatus_anterior == 'Disponible' %}<span class="badge badge-green">{{ h.estatus_anterior }}</span>
+                        {% elif h.estatus_anterior == 'Apartada'  %}<span class="badge badge-amber">{{ h.estatus_anterior }}</span>
+                        {% elif h.estatus_anterior == 'Vendida'   %}<span class="badge badge-red">{{ h.estatus_anterior }}</span>
+                        {% elif h.estatus_anterior == 'Inactiva'  %}<span class="badge badge-gray">{{ h.estatus_anterior }}</span>
+                        {% else %}<span class="badge badge-gray">{{ h.estatus_anterior }}</span>{% endif %}
+                    </td>
+                    <td>
+                        {% if h.estatus_nuevo == 'Disponible' %}<span class="badge badge-green">{{ h.estatus_nuevo }}</span>
+                        {% elif h.estatus_nuevo == 'Apartada'  %}<span class="badge badge-amber">{{ h.estatus_nuevo }}</span>
+                        {% elif h.estatus_nuevo == 'Vendida'   %}<span class="badge badge-red">{{ h.estatus_nuevo }}</span>
+                        {% elif h.estatus_nuevo == 'Inactiva'  %}<span class="badge badge-gray">{{ h.estatus_nuevo }}</span>
+                        {% else %}<span class="badge badge-gray">{{ h.estatus_nuevo }}</span>{% endif %}
+                    </td>
+                    <td style="font-size:13px; color:#374151">{{ h.motivo or '—' }}</td>
+                    <td>{{ h.usuario }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div style="text-align:center; padding:40px; color:#9ca3af">
+        No hay registros en el historial todavía.
+    </div>
+    {% endif %}
+</div>
+
+<div class="info-banner info-banner-green">
+    <strong>Nota:</strong> El historial guarda automáticamente todos los cambios de estatus de la propiedad,
+    con fecha, motivo y usuario que realizó el cambio.
+</div>
+{% endblock %}

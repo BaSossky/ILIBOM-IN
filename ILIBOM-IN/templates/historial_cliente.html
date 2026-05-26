@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% block title %}Historial de cliente{% endblock %}
+
+{% block content %}
+<div class="topbar">
+    <div>
+        <div class="page-title">Historial de seguimiento</div>
+        <div class="page-sub">{{ cliente.nombre }} {{ cliente.apellido_paterno or '' }} · CRM</div>
+    </div>
+    <div style="display:flex; gap:10px">
+        <a href="{{ url_for('editar_cliente', id=cliente.id_cliente) }}" class="btn btn-secondary">Editar perfil</a>
+        <a href="{{ url_for('clientes') }}" class="btn btn-secondary">← Volver al CRM</a>
+    </div>
+</div>
+
+<!-- Tarjeta de info del cliente -->
+<div class="card" style="margin-bottom:20px">
+    <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:20px">
+        <div>
+            <div style="font-size:11px; color:#6b7280; text-transform:uppercase; letter-spacing:.5px">Teléfono</div>
+            <div style="font-size:14px; font-weight:500; margin-top:4px">{{ cliente.telefono }}</div>
+        </div>
+        <div>
+            <div style="font-size:11px; color:#6b7280; text-transform:uppercase; letter-spacing:.5px">Correo</div>
+            <div style="font-size:14px; font-weight:500; margin-top:4px">{{ cliente.email or '—' }}</div>
+        </div>
+        <div>
+            <div style="font-size:11px; color:#6b7280; text-transform:uppercase; letter-spacing:.5px">Asesor</div>
+            <div style="font-size:14px; font-weight:500; margin-top:4px">{{ cliente.asesor_nombre or 'Sin asignar' }}</div>
+        </div>
+        <div>
+            <div style="font-size:11px; color:#6b7280; text-transform:uppercase; letter-spacing:.5px">Estatus actual</div>
+            <div style="margin-top:4px">
+                {% if cliente.estatus_lead == 'Nuevo' %}<span class="badge badge-green">● {{ cliente.estatus_lead }}</span>
+                {% elif cliente.estatus_lead == 'Sin contactar' %}<span class="badge badge-amber">● {{ cliente.estatus_lead }}</span>
+                {% elif cliente.estatus_lead == 'Contactado' %}<span class="badge badge-blue">● {{ cliente.estatus_lead }}</span>
+                {% elif cliente.estatus_lead == 'Cita agendada' %}<span class="badge badge-purple">● {{ cliente.estatus_lead }}</span>
+                {% elif cliente.estatus_lead == 'Activo' %}<span class="badge badge-green">● {{ cliente.estatus_lead }}</span>
+                {% elif cliente.estatus_lead == 'Ganado' %}<span class="badge badge-green">★ {{ cliente.estatus_lead }}</span>
+                {% elif cliente.estatus_lead == 'Perdido' %}<span class="badge badge-red">● {{ cliente.estatus_lead }}</span>
+                {% else %}<span class="badge badge-gray">{{ cliente.estatus_lead }}</span>{% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- KPIs -->
+<div class="kpi-grid" style="grid-template-columns:repeat(3,1fr)">
+    <div class="kpi-card">
+        <div class="kpi-label">Total contactos</div>
+        <div class="kpi-value">{{ historial|length }}</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Mensajes WhatsApp</div>
+        <div class="kpi-value">{{ mensajes_wa|length }}</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Días en sistema</div>
+        <div class="kpi-value">
+            {% if cliente.fecha_registro %}
+            {{ (now - cliente.fecha_registro).days if now is defined else '—' }}
+            {% else %}—{% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Línea del tiempo -->
+<div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px">
+        <div style="font-size:13.5px; font-weight:600; color:#064e3b">
+            Línea del tiempo de contactos
+        </div>
+        <button class="btn btn-primary btn-sm"
+                onclick="abrirSeguimiento({{ cliente.id_cliente }}, '{{ cliente.nombre }}')">
+            + Registrar nuevo contacto
+        </button>
+    </div>
+
+    {% if historial and historial|length > 0 %}
+    <div style="position:relative; padding-left:30px">
+        <div style="position:absolute; left:7px; top:0; bottom:0; width:2px; background:#e5e7eb"></div>
+
+        {% for h in historial %}
+        <div style="position:relative; margin-bottom:24px">
+            <!-- Bullet -->
+            <div style="position:absolute; left:-30px; top:6px; width:16px; height:16px; border-radius:50%;
+                      {% if h.canal == 'WhatsApp' %}background:#25D366
+                      {% elif h.canal == 'Llamada' %}background:#3b82f6
+                      {% elif h.canal == 'Email' %}background:#f59e0b
+                      {% elif h.canal == 'Presencial' %}background:#8b5cf6
+                      {% else %}background:#6b7280{% endif %};
+                      border:3px solid #fff; box-shadow:0 0 0 1px #e5e7eb">
+            </div>
+
+            <!-- Contenido -->
+            <div style="background:#f9fafb; border:1px solid #e5e7eb; border-radius:10px; padding:14px 18px">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px">
+                    <div>
+                        <span style="font-weight:600; font-size:13.5px">
+                            {% if h.canal == 'WhatsApp' %}WhatsApp
+                            {% elif h.canal == 'Llamada' %}Llamada
+                            {% elif h.canal == 'Email' %}Email
+                            {% elif h.canal == 'Presencial' %}Presencial
+                            {% else %}Sistema{% endif %}
+                        </span>
+                        <span style="font-size:12px; color:#6b7280; margin-left:8px">por {{ h.usuario }}</span>
+                    </div>
+                    <span style="font-size:11.5px; color:#6b7280">
+                        {{ h.fecha_contacto.strftime('%d/%m/%Y %H:%M') if h.fecha_contacto else '—' }}
+                    </span>
+                </div>
+                <div style="font-size:13px; color:#374151; line-height:1.5">{{ h.descripcion }}</div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div style="text-align:center; padding:40px; color:#9ca3af">
+        <div style="font-size:48px; opacity:0.4">Nota:</div>
+        <div style="margin-top:12px">No hay contactos registrados todavía.</div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- ══ MODAL: Bitácora ══ -->
+<div class="modal-overlay" id="modal-seguimiento">
+    <div class="modal-box">
+        <div class="modal-title">Registrar contacto</div>
+        <div style="margin-bottom:16px; font-size:13px; color:#6b7280">
+            Cliente: <strong id="seg-nombre">—</strong>
+        </div>
+        <form method="POST" action="{{ url_for('registrar_seguimiento') }}">
+            <input type="hidden" name="id_cliente" id="seg-id-cliente">
+            <div class="form-grid">
+                <div class="form-group form-span2">
+                    <label>Canal de contacto *</label>
+                    <select name="canal" required>
+                        <option value="Llamada">Llamada telefónica</option>
+                        <option value="WhatsApp">WhatsApp</option>
+                        <option value="Email">Correo electrónico</option>
+                        <option value="Presencial">Visita presencial</option>
+                        <option value="Sistema">Otro</option>
+                    </select>
+                </div>
+                <div class="form-group form-span2">
+                    <label>Descripción *</label>
+                    <textarea name="descripcion" required style="min-height:120px"
+                              placeholder="Resumen, acuerdos, próximos pasos..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('modal-seguimiento')">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Guardar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+  function abrirSeguimiento(idCliente, nombre) {
+    document.getElementById('seg-id-cliente').value = idCliente;
+    document.getElementById('seg-nombre').textContent = nombre;
+    openModal('modal-seguimiento');
+  }
+</script>
+{% endblock %}

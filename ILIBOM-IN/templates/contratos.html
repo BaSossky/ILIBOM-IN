@@ -1,0 +1,1032 @@
+{% extends "base.html" %}
+{% block title %}Contratos{% endblock %}
+
+{% block content %}
+<div class="topbar">
+    <div>
+        <div class="page-title">Contratos</div>
+        <div class="page-sub">Generación y gestoría bancaria </div>
+    </div>
+    <div style="display:flex; gap:10px; align-items:center">
+        <form method="GET" class="search-bar" style="margin:0">
+            <svg width="14" height="14" fill="none" stroke="#9ca3af" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input name="q" placeholder="Buscar folio o cliente..." value="{{ buscar or '' }}">
+        </form>
+        <button class="btn btn-primary" onclick="openModal('modal-contrato')"
+                {% if not depositos_validados %}disabled title="Necesitas un depósito validado primero" {% endif %}>
+            + Generar contrato
+        </button>
+    </div>
+</div>
+
+<!-- Aviso si no hay depósitos validados -->
+{% if not depositos_validados %}
+<div class="info-banner info-banner-amber" style="margin-bottom:20px">
+    NOTA: <strong>Para generar un contrato necesitas:</strong>
+    1) Registrar un depósito en el módulo de <a href="{{ url_for('pagos') }}" style="color:#92400e; text-decoration:underline">Pagos</a> →
+    2) Que el Administrador lo valide →
+    3) Volver aquí para generar el contrato.
+</div>
+{% endif %}
+
+<!-- KPIs -->
+<div class="kpi-grid" style="grid-template-columns:repeat(4,1fr)">
+    <div class="kpi-card">
+        <div class="kpi-label">Total contratos</div>
+        <div class="kpi-value">{{ kpis.total or 0 }}</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Activos</div>
+        <div class="kpi-value" style="color:#059669">{{ kpis.activos or 0 }}</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Compraventas</div>
+        <div class="kpi-value" style="color:#3b82f6">{{ kpis.compraventas or 0 }}</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Monto total</div>
+        <div class="kpi-value" style="color:#059669">${{ "{:,.0f}".format(kpis.monto_total or 0) }}</div>
+    </div>
+</div>
+
+<!-- TABS -->
+<div style="display:flex; gap:8px; margin-bottom:20px; border-bottom:2px solid #e5e7eb">
+    <button onclick="cambiarTab('tab-contratos')" id="btn-tab-contratos"
+            class="btn btn-primary btn-sm" style="border-radius:8px 8px 0 0; margin-bottom:-2px">
+        Contratos ({{ contratos|length }})
+    </button>
+    <button onclick="cambiarTab('tab-tramites')" id="btn-tab-tramites"
+            class="btn btn-secondary btn-sm" style="border-radius:8px 8px 0 0; margin-bottom:-2px">
+        Trámites bancarios ({{ tramites|length }})
+    </button>
+</div>
+
+<!-- ═══ TAB: CONTRATOS ═══ -->
+<div id="tab-contratos">
+
+    <!-- Filtros -->
+    <div class="filtros">
+        <a href="?filtro=Todos" class="btn {% if filtro == 'Todos' %}btn-primary{% else %}btn-secondary{% endif %} btn-sm">Todos</a>
+        <a href="?filtro=Activo" class="btn {% if filtro == 'Activo' %}btn-primary{% else %}btn-secondary{% endif %} btn-sm">Activos</a>
+        <a href="?filtro=En revision" class="btn {% if filtro == 'En revision' %}btn-primary{% else %}btn-secondary{% endif %} btn-sm">En revisión</a>
+        <a href="?filtro=Finalizado" class="btn {% if filtro == 'Finalizado' %}btn-primary{% else %}btn-secondary{% endif %} btn-sm">Finalizados</a>
+        <a href="?filtro=Cancelado" class="btn {% if filtro == 'Cancelado' %}btn-primary{% else %}btn-secondary{% endif %} btn-sm">Cancelados</a>
+    </div>
+
+    <div class="card">
+        {% if contratos and contratos|length > 0 %}
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Folio</th>
+                        <th>Cliente / Propiedad</th>
+                        <th>Tipo</th>
+                        <th>Fecha inicio</th>
+                        <th>Fecha fin</th>
+                        <th>Monto</th>
+                        <th>Generado por</th>
+                        <th>Estatus</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in contratos %}
+                    <tr>
+                        <td>
+                            <div style="font-weight:600; color:#059669; font-size:13.5px">{{ c.folio }}</div>
+                            <div style="font-size:11px; color:#6b7280">{{ c.fecha_generacion.strftime('%d/%m/%Y') if c.fecha_generacion }}</div>
+                        </td>
+                        <td>
+                            <div style="font-weight:500">{{ c.cliente }}</div>
+                            <div style="font-size:11.5px; color:#6b7280">{{ c.propiedad }}</div>
+                        </td>
+                        <td>
+                            {% if c.tipo_contrato == 'Compraventa' %}
+                            <span class="badge badge-blue">Compraventa</span>
+                            {% else %}
+                            <span class="badge badge-purple">Arrendamiento</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ c.fecha_inicio.strftime('%d/%m/%Y') if c.fecha_inicio }}</td>
+                        <td>
+                            {% if c.fecha_fin %}
+                            {{ c.fecha_fin.strftime('%d/%m/%Y') }}
+                            {% else %}
+                            <span style="color:#9ca3af">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div style="font-weight:600">${{ "{:,.0f}".format(c.monto_total) }}</div>
+                            {% if c.monto_renta %}
+                            <div style="font-size:11px; color:#6b7280">${{ "{:,.0f}".format(c.monto_renta) }}/mes</div>
+                            {% endif %}
+                        </td>
+                        <td style="font-size:12.5px">{{ c.generado_por }}</td>
+                        <td>
+                            {% if c.estatus == 'Activo' %}<span class="badge badge-green">● Activo</span>
+                            {% elif c.estatus == 'En revision' %}<span class="badge badge-amber">● En revisión</span>
+                            {% elif c.estatus == 'Finalizado' %}<span class="badge badge-blue">● Finalizado</span>
+                            {% elif c.estatus == 'Cancelado' %}<span class="badge badge-red">● Cancelado</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="td-actions">
+                                <button type="button" class="btn btn-secondary btn-sm"
+                                        onclick="verDetalleContrato('{{ c.folio }}', '{{ c.cliente }}', '{{ c.propiedad }}', '{{ c.tipo_contrato }}', {{ c.monto_total }}, '{{ c.fecha_inicio.strftime('%d/%m/%Y') if c.fecha_inicio }}', '{{ c.fecha_fin.strftime('%d/%m/%Y') if c.fecha_fin else 'N/A' }}')">
+                                     Ver
+                                </button>
+
+                                {% if c.tipo_contrato == 'Compraventa' and c.estatus == 'Activo' %}
+                                <button type="button" class="btn btn-secondary btn-sm"
+                                        onclick="abrirGestoria({{ c.id_contrato }}, '{{ c.folio }}', '{{ c.cliente }}')">
+                                     Gestoría
+                                </button>
+                                {% endif %}
+
+                                <button type="button" class="btn btn-primary btn-sm" style="background:#0891b2"
+                                        onclick="imprimirContrato('{{ c.folio }}', '{{ c.cliente }}', '{{ c.propiedad }}', '{{ c.tipo_contrato }}', {{ c.monto_total }})">
+                                     Imprimir
+                                </button>
+
+                                {% if c.estatus == 'Activo' and session.rol == 'Administrador' %}
+                                <button type="button" class="btn btn-danger btn-sm"
+                                        onclick="abrirCancelar({{ c.id_contrato }}, '{{ c.folio }}')">
+                                    ✗ Cancelar
+                                </button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div style="text-align:center; padding:60px 20px; color:#9ca3af">
+            <div style="font-size:48px; opacity:0.4">CONTRATOS</div>
+            <div style="margin-top:12px">No hay contratos registrados todavía.</div>
+            {% if depositos_validados %}
+            <button class="btn btn-primary" style="margin-top:20px" onclick="openModal('modal-contrato')">
+                + Generar el primer contrato
+            </button>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- ═══ TAB: TRÁMITES BANCARIOS ═══ -->
+<div id="tab-tramites" style="display:none">
+    <div class="card">
+        {% if tramites and tramites|length > 0 %}
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Contrato</th>
+                        <th>Cliente</th>
+                        <th>Institución</th>
+                        <th>Expediente</th>
+                        <th>Estatus</th>
+                        <th>Motivo</th>
+                        <th>Registró</th>
+                        <th>Fecha</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for t in tramites %}
+                    <tr>
+                        <td style="font-weight:600; color:#059669">{{ t.folio }}</td>
+                        <td>{{ t.cliente }}</td>
+                        <td>
+                            <span class="badge badge-blue">{{ t.institucion }}</span>
+                        </td>
+                        <td>{{ t.numero_expediente or '—' }}</td>
+                        <td>
+                            {% if t.estatus_tramite == 'Aprobado' %}
+                            <span class="badge badge-green">✓ {{ t.estatus_tramite }}</span>
+                            {% elif t.estatus_tramite == 'Rechazado' %}
+                            <span class="badge badge-red">✗ {{ t.estatus_tramite }}</span>
+                            {% elif t.estatus_tramite == 'En revisión del banco' %}
+                            <span class="badge badge-amber">En revisión</span>
+                            {% else %}
+                            <span class="badge badge-gray">{{ t.estatus_tramite }}</span>
+                            {% endif %}
+                        </td>
+                        <td style="font-size:12px; color:#6b7280; max-width:200px">
+                            {{ t.motivo_rechazo or '—' }}
+                        </td>
+                        <td style="font-size:12px">{{ t.id_usuario }}</td>
+                        <td style="font-size:12px">{{ t.fecha_registro.strftime('%d/%m/%Y') if t.fecha_registro }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div style="text-align:center; padding:60px 20px; color:#9ca3af">
+            <div style="font-size:48px; opacity:0.4">TRAMITES</div>
+            <div style="margin-top:12px">No hay trámites bancarios registrados.</div>
+            <div style="margin-top:6px; font-size:12.5px">Los trámites se registran desde un contrato de compraventa activo.</div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="info-banner info-banner-green" style="margin-top:16px">
+        <strong>RF-13:</strong> Aquí se registran los trámites con instituciones bancarias (INFONAVIT, FOVISSSTE, BBVA, etc.) para los contratos de compraventa.
+    </div>
+</div>
+
+<!-- ═══ MODAL: GENERAR CONTRATO ═══ -->
+<div class="modal-overlay" id="modal-contrato">
+    <div class="modal-box">
+        <div class="modal-title">Generar contrato — RF-11</div>
+
+        <div class="info-banner info-banner-green" style="margin-bottom:16px">
+            Solo aparecen depósitos <strong>validados</strong> sin contrato activo.
+        </div>
+
+        <form method="POST" action="{{ url_for('nuevo_contrato') }}">
+            <div class="form-grid">
+
+                <div class="form-group form-span2">
+                    <label>Depósito validado *</label>
+                    <select id="select-deposito" required onchange="seleccionarDeposito()">
+                        <option value="">— Seleccionar depósito —</option>
+                        {% for d in depositos_validados %}
+                        <option value="{{ d.id_deposito }}"
+                                data-cliente="{{ d.id_cliente }}"
+                                data-propiedad="{{ d.id_propiedad }}"
+                                data-precio-venta="{{ d.precio_venta or 0 }}"
+                                data-precio-renta="{{ d.precio_renta or 0 }}"
+                                data-cliente-nombre="{{ d.cliente }}"
+                                data-propiedad-nombre="{{ d.propiedad }}">
+                            {{ d.cliente }} → {{ d.propiedad }} (${{ "{:,.0f}".format(d.monto) }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <input type="hidden" name="id_cliente" id="hidden-cliente">
+                <input type="hidden" name="id_propiedad" id="hidden-propiedad">
+
+                <div class="form-group">
+                    <label>Tipo de contrato *</label>
+                    <select name="tipo_contrato" id="select-tipo" required onchange="cambiarTipoContrato()">
+                        <option value="">— Seleccionar —</option>
+                        <option value="Compraventa">Compraventa</option>
+                        <option value="Arrendamiento">Arrendamiento</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Fecha de inicio *</label>
+                    <input type="date" name="fecha_inicio" required>
+                </div>
+
+                <div class="form-group" id="grupo-fecha-fin" style="display:none">
+                    <label>Fecha de fin (renta) *</label>
+                    <input type="date" name="fecha_fin" id="input-fecha-fin">
+                </div>
+
+                <div class="form-group">
+                    <label id="label-monto">Monto total *</label>
+                    <input type="number" step="0.01" name="monto_total" id="input-monto-total" required min="0.01">
+                </div>
+
+                <div class="form-group" id="grupo-monto-renta" style="display:none">
+                    <label>Monto de renta mensual *</label>
+                    <input type="number" step="0.01" name="monto_renta" id="input-monto-renta" min="0.01">
+                    <small style="font-size:11.5px; color:#6b7280; margin-top:4px">
+                        Se generarán los pagos mensuales automáticamente.
+                    </small>
+                </div>
+
+                <div class="form-group form-span2">
+                    <label>Notas / Cláusulas especiales</label>
+                    <textarea name="notas" placeholder="Observaciones, cláusulas particulares..."></textarea>
+                </div>
+
+            </div>
+
+            <div class="info-banner info-banner-amber" style="margin-top:12px">
+                NOTA:<strong>Al generar el contrato:</strong>
+                <ul style="margin:6px 0 0 20px; padding:0">
+                    <li>Compraventa → Propiedad pasa a <strong>Vendida</strong> y se registra comisión del 3% al asesor</li>
+                    <li>Arrendamiento → Propiedad pasa a <strong>Apartada</strong> y se generan los pagos mensuales</li>
+                </ul>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('modal-contrato')">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Generar contrato</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ═══ MODAL: VER DETALLE CONTRATO ═══ -->
+<div class="modal-overlay" id="modal-detalle">
+    <div class="modal-box">
+        <div class="modal-title">Detalle del contrato</div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; font-size:13.5px">
+            <div>
+                <div style="font-size:11px; color:#6b7280; text-transform:uppercase; letter-spacing:.5px">Folio</div>
+                <div style="font-weight:600; color:#059669; margin-top:4px" id="det-folio">—</div>
+            </div>
+            <div>
+                <div style="font-size:11px; color:#6b7280; text-transform:uppercase; letter-spacing:.5px">Tipo</div>
+                <div style="font-weight:500; margin-top:4px" id="det-tipo">—</div>
+            </div>
+            <div>
+                <div style="font-size:11px; color:#6b7280; text-transform:uppercase; letter-spacing:.5px">Cliente</div>
+                <div style="font-weight:500; margin-top:4px" id="det-cliente">—</div>
+            </div>
+            <div>
+                <div style="font-size:11px; color:#6b7280; text-transform:uppercase; letter-spacing:.5px">Propiedad</div>
+                <div style="font-weight:500; margin-top:4px" id="det-propiedad">—</div>
+            </div>
+            <div>
+                <div style="font-size:11px; color:#6b7280; text-transform:uppercase; letter-spacing:.5px">Inicio</div>
+                <div style="font-weight:500; margin-top:4px" id="det-inicio">—</div>
+            </div>
+            <div>
+                <div style="font-size:11px; color:#6b7280; text-transform:uppercase; letter-spacing:.5px">Fin</div>
+                <div style="font-weight:500; margin-top:4px" id="det-fin">—</div>
+            </div>
+            <div class="form-span2">
+                <div style="font-size:11px; color:#6b7280; text-transform:uppercase; letter-spacing:.5px">Monto total</div>
+                <div style="font-weight:700; font-size:20px; color:#059669; margin-top:4px" id="det-monto">—</div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-primary" onclick="closeModal('modal-detalle')">Cerrar</button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ MODAL: GESTORÍA BANCARIA ═══ -->
+<div class="modal-overlay" id="modal-gestoria">
+    <div class="modal-box">
+        <div class="modal-title">Trámite bancario — RF-13</div>
+        <div style="margin-bottom:16px; font-size:13px; color:#6b7280">
+            Contrato: <strong id="ges-folio">—</strong> · Cliente: <strong id="ges-cliente">—</strong>
+        </div>
+        <form method="POST" action="{{ url_for('nueva_gestoria') }}">
+            <input type="hidden" name="id_contrato" id="ges-id-contrato">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Institución *</label>
+                    <select name="institucion" required>
+                        <option value="INFONAVIT">INFONAVIT</option>
+                        <option value="FOVISSSTE">FOVISSSTE</option>
+                        <option value="BBVA">BBVA</option>
+                        <option value="Santander">Santander</option>
+                        <option value="Banamex">Banamex</option>
+                        <option value="HSBC">HSBC</option>
+                        <option value="Scotiabank">Scotiabank</option>
+                        <option value="Caja Popular Mexicana">Caja Popular Mexicana</option>
+                        <option value="Otro">Otro</option>
+                </div>
+                <div class="form-group">
+                    <label>No. de expediente</label>
+                    <input type="text" name="numero_expediente" placeholder="EXP-2026-XXXXX">
+                </div>
+                <div class="form-group form-span2">
+                    <label>Estatus del trámite *</label>
+                    <select name="estatus_tramite" id="select-estatus-tramite" required onchange="toggleMotivo()">
+                        <option value="En proceso">En proceso</option>
+                        <option value="Documentación completa">Documentación completa</option>
+                        <option value="En revisión del banco">En revisión del banco</option>
+                        <option value="Aprobado">Aprobado</option>
+                        <option value="Rechazado">Rechazado</option>
+                    </select>
+                </div>
+                <div class="form-group form-span2" id="grupo-motivo" style="display:none">
+                    <label>Motivo de rechazo *</label>
+                    <textarea name="motivo_rechazo" placeholder="Detalla el motivo del rechazo del banco..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('modal-gestoria')">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Guardar trámite</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ═══ MODAL: CANCELAR CONTRATO ═══ -->
+<div class="modal-overlay" id="modal-cancelar">
+    <div class="modal-box">
+        <div class="modal-title" style="color:#dc2626">⚠ Cancelar contrato</div>
+        <div style="background:#fef2f2; border:1px solid #fca5a5; border-radius:8px; padding:14px; margin-bottom:16px; font-size:13px; color:#991b1b">
+            Esta acción es <strong>irreversible</strong>. Se cancelarán los pagos pendientes y la propiedad volverá a Disponible.<br>
+            Contrato: <strong id="canc-folio">—</strong>
+        </div>
+        <form method="POST" id="form-cancelar">
+            <div class="form-group">
+                <label>Motivo de cancelación *</label>
+                <textarea name="motivo" required placeholder="Detalla el motivo de la cancelación..."></textarea>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('modal-cancelar')">No cancelar</button>
+                <button type="submit" class="btn btn-danger">Sí, cancelar contrato</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function cambiarTab(tabId) {
+        const tabs = ['tab-contratos', 'tab-tramites'];
+        tabs.forEach(t => {
+            const div = document.getElementById(t);
+            const btn = document.getElementById('btn-' + t);
+            if (t === tabId) {
+                div.style.display = 'block';
+                btn.className = 'btn btn-primary btn-sm';
+            } else {
+                div.style.display = 'none';
+                btn.className = 'btn btn-secondary btn-sm';
+            }
+            btn.style.cssText = 'border-radius:8px 8px 0 0; margin-bottom:-2px';
+        });
+    }
+
+    function seleccionarDeposito() {
+        const sel = document.getElementById('select-deposito');
+        const opt = sel.options[sel.selectedIndex];
+        if (!opt.value) return;
+
+        document.getElementById('hidden-cliente').value = opt.dataset.cliente;
+        document.getElementById('hidden-propiedad').value = opt.dataset.propiedad;
+
+        const tipo = document.getElementById('select-tipo').value;
+        if (tipo === 'Compraventa' && opt.dataset.precioVenta > 0) {
+            document.getElementById('input-monto-total').value = opt.dataset.precioVenta;
+        } else if (tipo === 'Arrendamiento' && opt.dataset.precioRenta > 0) {
+            document.getElementById('input-monto-renta').value = opt.dataset.precioRenta;
+            document.getElementById('input-monto-total').value = opt.dataset.precioRenta * 12;
+        }
+    }
+
+    function cambiarTipoContrato() {
+        const tipo = document.getElementById('select-tipo').value;
+        const grupoFin = document.getElementById('grupo-fecha-fin');
+        const grupoRenta = document.getElementById('grupo-monto-renta');
+        const labelMonto = document.getElementById('label-monto');
+        const inputFin = document.getElementById('input-fecha-fin');
+        const inputRenta = document.getElementById('input-monto-renta');
+
+        if (tipo === 'Arrendamiento') {
+            grupoFin.style.display = 'block';
+            grupoRenta.style.display = 'block';
+            labelMonto.textContent = 'Monto total del contrato (suma anual) *';
+            inputFin.required = true;
+            inputRenta.required = true;
+        } else {
+            grupoFin.style.display = 'none';
+            grupoRenta.style.display = 'none';
+            labelMonto.textContent = 'Monto de venta *';
+            inputFin.required = false;
+            inputRenta.required = false;
+        }
+
+        // Re-aplicar valores del depósito si ya estaba seleccionado
+        if (document.getElementById('select-deposito').value) seleccionarDeposito();
+    }
+
+    function verDetalleContrato(folio, cliente, propiedad, tipo, monto, inicio, fin) {
+        document.getElementById('det-folio').textContent = folio;
+        document.getElementById('det-tipo').textContent = tipo;
+        document.getElementById('det-cliente').textContent = cliente;
+        document.getElementById('det-propiedad').textContent = propiedad;
+        document.getElementById('det-inicio').textContent = inicio;
+        document.getElementById('det-fin').textContent = fin;
+        document.getElementById('det-monto').textContent = '$' + monto.toLocaleString('es-MX', { minimumFractionDigits: 2 });
+        openModal('modal-detalle');
+    }
+
+    function abrirGestoria(idContrato, folio, cliente) {
+        document.getElementById('ges-id-contrato').value = idContrato;
+        document.getElementById('ges-folio').textContent = folio;
+        document.getElementById('ges-cliente').textContent = cliente;
+        openModal('modal-gestoria');
+    }
+
+    function toggleMotivo() {
+        const estatus = document.getElementById('select-estatus-tramite').value;
+        const grupo = document.getElementById('grupo-motivo');
+        const textarea = grupo.querySelector('textarea');
+        if (estatus === 'Rechazado') {
+            grupo.style.display = 'block';
+            textarea.required = true;
+        } else {
+            grupo.style.display = 'none';
+            textarea.required = false;
+        }
+    }
+
+    function abrirCancelar(idContrato, folio) {
+        document.getElementById('canc-folio').textContent = folio;
+        document.getElementById('form-cancelar').action = '/contratos/cancelar/' + idContrato;
+        openModal('modal-cancelar');
+    }
+
+    function imprimirContrato(folio, cliente, propiedad, tipo, monto) {
+        const ventana = window.open('', '_blank', 'width=850,height=950');
+        const meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+            'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+        const hoy = new Date();
+        const fechaTexto = `${hoy.getDate()} de ${meses[hoy.getMonth()]} del año ${hoy.getFullYear()}`;
+        const dia = hoy.getDate();
+        const mes = meses[hoy.getMonth()];
+        const anio = hoy.getFullYear();
+        const montoTexto = '$' + monto.toLocaleString('es-MX', { minimumFractionDigits: 2 });
+        const apartado = (monto * 0.005).toLocaleString('es-MX', { minimumFractionDigits: 2 });
+
+        let contenido = '';
+
+        // ═══════════ CONTRATO DE COMPRAVENTA ═══════════
+        if (tipo === 'Compraventa') {
+            contenido = `
+      <h1>CONTRATO DE PROMESA DE COMPRA VENTA</h1>
+
+      <p class="parrafo">
+        CONTRATO DE PROMESA DE COMPRAVENTA QUE CELEBRAN, POR UNA PARTE,
+        <strong>INMOBILIARIA EXAUMY</strong>, A QUIEN EN LO SUCESIVO SE LE DENOMINARÁ COMO
+        <strong>LA PROMITENTE VENDEDORA</strong>; Y POR LA OTRA PARTE,
+        <strong>${cliente.toUpperCase()}</strong>, A QUIEN EN LO SUCESIVO SE LE DENOMINARÁ
+        <strong>EL PROMITENTE COMPRADOR</strong>, AL TENOR DE LAS SIGUIENTES DECLARACIONES Y CLÁUSULAS:
+      </p>
+
+      <h2>D E C L A R A C I O N E S</h2>
+
+      <h3>I. DECLARA LA PROMITENTE VENDEDORA:</h3>
+      <p class="parrafo">
+        <strong>I.1.</strong> INMOBILIARIA EXAUMY, tiene plena capacidad jurídica para obligarse en los términos del presente instrumento.
+      </p>
+      <p class="parrafo">
+        <strong>I.2.</strong> Con domicilio fiscal en la ciudad de León, Guanajuato.
+      </p>
+      <p class="parrafo">
+        <strong>I.3.</strong> Que es legítima propietaria y poseedora del bien inmueble (en lo sucesivo el INMUEBLE)
+        ubicado en <strong>${propiedad}</strong>, en la ciudad de León, Guanajuato.
+      </p>
+
+      <h3>II. DECLARA EL PROMITENTE COMPRADOR:</h3>
+      <p class="parrafo">
+        <strong>II.1.</strong> ${cliente.toUpperCase()}, ser de nacionalidad mexicana, mayor de edad,
+        con plena capacidad jurídica para obligarse en los términos del presente instrumento.
+      </p>
+      <p class="parrafo">
+        <strong>II.2.</strong> Que cuenta con los recursos económicos suficientes para cubrir las cantidades
+        que se fijen por las partes en el presente instrumento.
+      </p>
+      <p class="parrafo">
+        <strong>II.3.</strong> EL PROMITENTE COMPRADOR conoce el estado físico del Inmueble materia de este
+        presente contrato, el cual acepta en las mismas condiciones físicas en las que se encuentra,
+        dando por entendido que la casa se entregará en condiciones habitables.
+      </p>
+      <p class="parrafo">
+        <strong>II.4.</strong> La vivienda se vende sin garantía; en este caso "el vendedor" no está obligado
+        a realizar ningún tipo de reparación; por lo que "el comprador" asumirá los costos por reparación,
+        materiales y/o mano de obra posteriores a la entrega.
+      </p>
+
+      <p class="parrafo">
+        <strong>III.</strong> EL PROMITENTE COMPRADOR y LA PROMITENTE VENDEDORA (en lo sucesivo LAS PARTES)
+        sujetan el presente contrato de PROMESA DE COMPRAVENTA, el cual convienen al tenor de las siguientes:
+      </p>
+
+      <h2>C L Á U S U L A S</h2>
+
+      <h3>PRIMERA. OBJETO.</h3>
+      <p class="parrafo">
+        Por medio del presente instrumento LA PROMITENTE VENDEDORA se compromete a vender y EL PROMITENTE
+        COMPRADOR se compromete a comprar el INMUEBLE descrito en la declaración I.3., el cual deberá
+        ser celebrado y protocolizado ante el Notario Público que la Institución designe.
+      </p>
+
+      <h3>SEGUNDA. PRECIO Y FORMA DE PAGO.</h3>
+      <p class="parrafo">
+        Las partes han acordado como precio definitivo de la operación de Compra-venta del INMUEBLE,
+        la cantidad de <strong>${montoTexto} M.N.</strong>, a pagarse mediante crédito bancario o
+        institucional, así como la cantidad restante mediante transferencia bancaria o efectivo,
+        conforme a los acuerdos pactados entre las partes.
+      </p>
+
+      <h3>TERCERA. SITUACIÓN DEL INMUEBLE.</h3>
+      <p class="parrafo">
+        LA PROMITENTE VENDEDORA manifiesta bajo protesta de decir verdad que el INMUEBLE materia de la
+        presente operación, no tiene ninguna responsabilidad y a su vez se encuentra al corriente en el
+        pago del impuesto predial, luz y agua correspondientes.
+      </p>
+
+      <h3>CUARTA. PRECIO JUSTO.</h3>
+      <p class="parrafo">
+        Las partes contratantes consideran que el precio pactado en esta operación es el justo y que no
+        existe dolo, error, lesión, mala fe y violencia, por lo que renuncian recíprocamente a las
+        acciones de nulidad fundadas en tales vicios del consentimiento, establecidos por la Legislación Civil.
+      </p>
+
+      <h3>QUINTA. APORTACIONES Y GASTOS.</h3>
+      <p class="parrafo">
+        EL PROMITENTE COMPRADOR acepta y se obliga a pagar por cuenta propia los gastos del trámite de
+        gestoría ante la institución financiera correspondiente, y LA PROMITENTE VENDEDORA se obliga
+        a cubrir el impuesto sobre la renta que corresponda.
+      </p>
+
+      <h3>SEXTA. LIBRE NEGOCIACIÓN.</h3>
+      <p class="parrafo">
+        Las partes declaran bajo protesta de decir verdad que han negociado libremente los términos del
+        presente instrumento, conociendo el ámbito de las obligaciones que han asumido y que es su
+        voluntad obligarse de la forma más amplia que proceda conforme a derecho, conviniendo expresa
+        y libremente que las declaraciones insertadas por las partes en este instrumento también
+        constituyen obligaciones recíprocas, lícitas, legales y válidas en momento para las mismas.
+      </p>
+
+      <h3>SÉPTIMA. APARTADO.</h3>
+      <p class="parrafo">
+        EL PROMITENTE COMPRADOR entregará a LA PROMITENTE VENDEDORA un apartado, que será tomado a
+        cuenta del valor total de la vivienda, conforme a lo registrado en el sistema ILIBOM-IN.
+      </p>
+
+      <h3>OCTAVA. PENALIZACIÓN.</h3>
+      <p class="parrafo">
+        Los promitentes establecen, para el caso del incumplimiento, una penalización para cualquiera
+        de las partes con valor igual al <strong>5% (CINCO por ciento)</strong> del valor total de la operación.
+      </p>
+
+      <h3>NOVENA. ENTREGA.</h3>
+      <p class="parrafo">
+        En la fecha del otorgamiento de la escritura pública, LA PROMITENTE VENDEDORA hará la entrega
+        material del inmueble de cinco a 15 días hábiles después al PROMITENTE COMPRADOR.
+      </p>
+
+      <p class="parrafo" style="margin-top:30px">
+        UNA VEZ LEÍDO POR LAS PARTES, Y ENTERADAS ÉSTAS DEL ALCANCE LEGAL DEL MISMO, EL PRESENTE
+        CONTRATO SE FIRMA DE CONFORMIDAD, EN LA CIUDAD DE LEÓN, GUANAJUATO, EL DÍA
+        <strong>${fechaTexto.toUpperCase()}</strong>.
+      </p>
+
+      <div class="firmas">
+        <div class="firma-bloque">
+          <div class="firma-linea"></div>
+          <div class="firma-rol">PROMITENTE VENDEDORA</div>
+          <div class="firma-nombre">INMOBILIARIA EXAUMY</div>
+        </div>
+        <div class="firma-bloque">
+          <div class="firma-linea"></div>
+          <div class="firma-rol">PROMITENTE COMPRADOR</div>
+          <div class="firma-nombre">${cliente.toUpperCase()}</div>
+        </div>
+      </div>
+
+      <div class="firmas" style="margin-top:60px">
+        <div class="firma-bloque" style="margin:0 auto">
+          <div class="firma-linea"></div>
+          <div class="firma-rol">TESTIGO</div>
+        </div>
+      </div>
+    `;
+        }
+
+        // ═══════════ CONTRATO DE ARRENDAMIENTO ═══════════
+        else {
+            contenido = `
+      <div class="portada">
+        <h1 style="font-size:32px; margin-top:200px">CONTRATO DE ARRENDAMIENTO</h1>
+        <div style="margin-top:60px; font-size:14px">Folio: <strong>${folio}</strong></div>
+      </div>
+
+      <div class="page-break"></div>
+
+      <div class="portada-2">
+        <h2 style="text-align:center; margin-top:100px">CONTRATO DE ARRENDAMIENTO QUE SE CELEBRA ENTRE:</h2>
+        <p style="text-align:center; margin-top:60px; font-size:18px"><strong>INMOBILIARIA EXAUMY</strong></p>
+        <p style="text-align:center; font-size:14px">(Arrendador)</p>
+        <p style="text-align:center; margin-top:30px; font-size:14px">Y</p>
+        <p style="text-align:center; margin-top:30px; font-size:18px"><strong>${cliente.toUpperCase()}</strong></p>
+        <p style="text-align:center; font-size:14px">(Arrendatario)</p>
+        <p style="text-align:center; margin-top:60px; font-size:14px">DE FECHA: <strong>${fechaTexto.toUpperCase()}</strong></p>
+      </div>
+
+      <div class="page-break"></div>
+
+      <p class="parrafo">
+        En León, Guanajuato, siendo el día <strong>${dia}</strong> del mes de <strong>${mes}</strong>
+        del año <strong>${anio}</strong>, se celebra el presente CONTRATO DE ARRENDAMIENTO entre
+        <strong>INMOBILIARIA EXAUMY</strong>, como ARRENDADOR, y <strong>${cliente.toUpperCase()}</strong>,
+        como ARRENDATARIO, respecto del inmueble que se describe a continuación, de conformidad con
+        los siguientes:
+      </p>
+
+      <h2>D E C L A R A C I O N E S</h2>
+
+      <h3>I. DECLARA EL ARRENDADOR:</h3>
+      <p class="parrafo">
+        <strong>a)</strong> Que tiene las facultades suficientes y bastantes para obligarse en términos
+        del presente instrumento.
+      </p>
+      <p class="parrafo">
+        <strong>b)</strong> Que es el único legítimo propietario del inmueble ubicado en
+        <strong>${propiedad}</strong>, León, Guanajuato (el "INMUEBLE"), y que es su deseo darlo en
+        arrendamiento en favor del ARRENDATARIO.
+      </p>
+      <p class="parrafo">
+        <strong>c)</strong> Que está legalmente facultado para dar en arrendamiento el inmueble en los
+        términos y condiciones establecidos en este contrato.
+      </p>
+
+      <h3>II. DECLARA EL ARRENDATARIO:</h3>
+      <p class="parrafo">
+        <strong>a)</strong> Que tiene las facultades suficientes y bastantes para obligarse en términos
+        del presente Contrato, así como los recursos suficientes para cumplir con las obligaciones
+        derivadas del mismo, los cuales obtiene de actividades lícitas.
+      </p>
+      <p class="parrafo">
+        <strong>b)</strong> Que es su deseo tomar en arrendamiento el Inmueble, el cual conoce y reconoce
+        que se encuentra en las condiciones necesarias de seguridad, higiene y salubridad para ser
+        habitado y que cuenta con todo lo que se señala en el inventario que se adjunta al presente
+        como Anexo número 2 y que todos sus servicios se encuentran funcionando, por lo que no
+        condicionará el pago de rentas a ningún tipo de mejora.
+      </p>
+
+      <h3>III. DECLARAN LAS PARTES:</h3>
+      <p class="parrafo">
+        <strong>a)</strong> Que en el presente contrato no existe dolo, error, mala fe o cualquier otro
+        vicio de la voluntad, por lo que expresamente renuncian a invocarlos en cualquier tiempo.
+      </p>
+      <p class="parrafo">
+        <strong>b)</strong> Que se reconocen la personalidad con la que comparecen a la celebración de
+        este contrato y expresamente convienen en someterse a las obligaciones contenidas en las siguientes:
+      </p>
+
+      <p class="parrafo" style="margin-top:20px">Expuesto lo anterior, los comparecientes estipulan las siguientes:</p>
+
+      <h2>C L Á U S U L A S</h2>
+
+      <h3>PRIMERA. OBJETO.</h3>
+      <p class="parrafo">
+        Sujeto a los plazos, términos y condiciones aquí acordadas, el ARRENDADOR otorga en arrendamiento
+        al ARRENDATARIO, y éste toma en dicha calidad, el inmueble descrito.
+      </p>
+
+      <h3>SEGUNDA. RENTA.</h3>
+      <p class="parrafo">
+        El ARRENDATARIO pagará mensualmente al ARRENDADOR o a quien sus derechos representen, por concepto
+        de renta, la cantidad acordada conforme al sistema ILIBOM-IN, sujeto a los siguientes términos y plazos:
+      </p>
+      <p class="parrafo">
+        <strong>a)</strong> El pago de la renta será por un mes adelantado, debiendo cubrirse íntegra la
+        renta mensual, aun cuando no se usare el Inmueble el mes completo.
+      </p>
+      <p class="parrafo">
+        <strong>b)</strong> El pago de la renta se cubrirá en su totalidad dentro de los primeros tres días
+        naturales de cada mes, en el domicilio del Arrendador o en su caso a través de transferencia bancaria.
+      </p>
+      <p class="parrafo">
+        <strong>c)</strong> Será causa de rescisión de este Contrato, sin necesidad de intervención judicial
+        alguna, el hecho de que se pague extemporáneamente la renta, o de que ésta no sea cubierta.
+      </p>
+      <p class="parrafo">
+        <strong>d)</strong> El ARRENDATARIO no podrá en ningún caso retener las rentas, bajo ningún título
+        judicial, ni extrajudicial, debiendo hacer el pago íntegro a más tardar en el plazo descrito en el
+        inciso b), por lo que de no hacerlo en tiempo, modo y lugar convenidos, pagará una pena convencional
+        del <strong>5% (cinco por ciento)</strong> sobre el importe de la renta.
+      </p>
+      <p class="parrafo">
+        <strong>e)</strong> En caso de prórroga del presente contrato, en cada aniversario el monto de la
+        renta mensual será incrementada en el mismo porcentaje que el Índice Nacional de Precios al Consumidor.
+      </p>
+
+      <h3>TERCERA. DEPÓSITO EN GARANTÍA.</h3>
+      <p class="parrafo">
+        A la fecha de firma del presente contrato, el ARRENDATARIO entrega al ARRENDADOR, por concepto de
+        depósito en garantía, el equivalente a un mes de renta. Las partes acuerdan que el ARRENDADOR no
+        aplicará el depósito al pago de cualquier mensualidad vencida, o al pago de cualquier otra
+        obligación incumplida por el ARRENDATARIO.
+      </p>
+      <p class="parrafo">
+        Transcurrido un plazo de treinta días posteriores a que haya desocupado y entregado el Inmueble,
+        el ARRENDADOR devolverá al ARRENDATARIO el mencionado depósito sin interés ni rendimiento financiero
+        alguno, siempre y cuando éste no se hubiere ocupado en arreglar deterioros en el inmueble no
+        causados por su uso normal o no existiere ningún saldo pendiente por servicios.
+      </p>
+
+      <h3>CUARTA. VIGENCIA.</h3>
+      <p class="parrafo">
+        La vigencia del presente contrato es de un año forzoso para ambas partes, iniciando su vigencia
+        en la fecha de firma del presente contrato y terminando en su primer aniversario, debiendo avisar
+        el ARRENDATARIO al ARRENDADOR por escrito con por lo menos treinta días hábiles de anticipación
+        a su vencimiento, su deseo de prorrogar o no el arrendamiento.
+      </p>
+
+      <h3>QUINTA. USO DE SUELO.</h3>
+      <p class="parrafo">
+        El inmueble será destinado únicamente para casa habitación, quedándole prohibido al ARRENDATARIO
+        cambiar el uso referido, siendo causa de rescisión el incumplimiento a esta disposición.
+      </p>
+
+      <h3>SEXTA. SERVICIOS.</h3>
+      <p class="parrafo">
+        El ARRENDATARIO se obliga a cubrir oportunamente el importe de todos los servicios utilizados en
+        el Inmueble, incluyendo energía eléctrica, servicio de agua potable, teléfono, gas y cuota de
+        mantenimiento (en su caso).
+      </p>
+
+      <h3>SÉPTIMA. INMUEBLE.</h3>
+      <p class="parrafo">
+        El ARRENDATARIO reconoce que recibe el inmueble en buen estado, en condiciones de higiene,
+        seguridad y salubridad, todo lo cual devolverá al terminarse el Arrendamiento con el deterioro
+        natural de su uso. Para efectuar cualquier mejora o instalación en el inmueble, deberá obtener
+        autorización previa y por escrito del ARRENDADOR.
+      </p>
+
+      <h3>OCTAVA. CESIÓN DE DERECHOS.</h3>
+      <p class="parrafo">
+        El ARRENDATARIO no podrá subarrendar, traspasar o ceder, en todo o en parte, sus derechos
+        derivados de este contrato. El ARRENDADOR podrá ceder, todo o parte, de sus derechos derivados
+        de este contrato mediante simple notificación por escrito dada al ARRENDATARIO.
+      </p>
+
+      <h3>NOVENA. SUSTANCIAS PELIGROSAS.</h3>
+      <p class="parrafo">
+        El ARRENDATARIO está de acuerdo en no almacenar sustancias peligrosas, inflamables, corrosivas,
+        deletéreas o ilegales dentro del Inmueble. En caso de siniestro, el ARRENDATARIO deberá cubrir
+        al ARRENDADOR y a los terceros que resulten afectados los daños y perjuicios que les ocasione.
+      </p>
+
+      <h3>DÉCIMA. TERMINACIÓN ANTICIPADA.</h3>
+      <p class="parrafo">
+        En caso de que el ARRENDATARIO pretenda dar por concluido el presente contrato antes del
+        vencimiento de su plazo forzoso, cualquiera que sea la causa, pagará como pena convencional
+        el importe de <strong>2 meses de renta</strong>, debiendo desocupar el inmueble en un plazo
+        no mayor a diez días posteriores a dicho pago.
+      </p>
+
+      <h3>DÉCIMA PRIMERA. RESCISIÓN.</h3>
+      <p class="parrafo">
+        La falsedad en las declaraciones vertidas en este contrato y/o el incumplimiento de las partes
+        a cualquiera de sus obligaciones será motivo de su rescisión, sin necesidad de intervención
+        judicial alguna, quedando la parte que incumplió obligada a pagar los daños y perjuicios causados.
+      </p>
+
+      <h3>DÉCIMA SEGUNDA. ACUERDO TOTAL.</h3>
+      <p class="parrafo">
+        Este contrato y todos sus Anexos constituyen la totalidad de los acuerdos celebrados entre las
+        partes respecto al objeto del mismo, y substituye y deja sin efectos cualquier acuerdo previo
+        entre las partes en relación con el mismo.
+      </p>
+
+      <h3>DÉCIMA TERCERA. LEYES APLICABLES Y TRIBUNALES COMPETENTES.</h3>
+      <p class="parrafo">
+        Para todo lo relacionado con la interpretación y ejecución de este instrumento son aplicables
+        las Leyes correspondientes a su objeto y, en caso de controversia, serán competentes los
+        tribunales de la Ciudad de León, Gto., renunciando las partes expresamente a cualquier otra
+        jurisdicción.
+      </p>
+
+      <p class="parrafo" style="margin-top:30px">
+        En virtud de lo cual, las partes han celebrado el presente contrato en la fecha mencionada
+        en el preámbulo de este.
+      </p>
+
+      <div class="firmas">
+        <div class="firma-bloque">
+          <div class="firma-linea"></div>
+          <div class="firma-rol">ARRENDADOR</div>
+          <div class="firma-nombre">INMOBILIARIA EXAUMY</div>
+        </div>
+        <div class="firma-bloque">
+          <div class="firma-linea"></div>
+          <div class="firma-rol">ARRENDATARIO</div>
+          <div class="firma-nombre">${cliente.toUpperCase()}</div>
+        </div>
+      </div>
+
+      <div class="firmas" style="margin-top:50px">
+        <div class="firma-bloque">
+          <div class="firma-linea"></div>
+          <div class="firma-rol">TESTIGO 1</div>
+        </div>
+        <div class="firma-bloque">
+          <div class="firma-linea"></div>
+          <div class="firma-rol">TESTIGO 2</div>
+        </div>
+      </div>
+    `;
+        }
+
+        ventana.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>${tipo} - ${folio}</title>
+      <style>
+        @page { size: letter; margin: 2cm }
+        body {
+          font-family: 'Times New Roman', Times, serif;
+          max-width: 780px;
+          margin: 30px auto;
+          padding: 30px 50px;
+          line-height: 1.6;
+          color: #1a1a1a;
+          font-size: 12pt;
+          text-align: justify;
+        }
+        h1 {
+          text-align: center;
+          font-size: 16pt;
+          margin: 20px 0 30px;
+          font-weight: bold;
+          text-transform: uppercase;
+        }
+        h2 {
+          text-align: center;
+          font-size: 13pt;
+          margin: 25px 0 15px;
+          font-weight: bold;
+          letter-spacing: 2px;
+        }
+        h3 {
+          font-size: 12pt;
+          font-weight: bold;
+          margin: 16px 0 6px;
+          text-transform: uppercase;
+        }
+        .parrafo {
+          margin-bottom: 12px;
+          text-align: justify;
+          text-indent: 0;
+        }
+        .firmas {
+          display: flex;
+          justify-content: space-between;
+          gap: 40px;
+          margin-top: 70px;
+        }
+        .firma-bloque {
+          flex: 1;
+          text-align: center;
+        }
+        .firma-linea {
+          border-top: 1px solid #1a1a1a;
+          margin-bottom: 8px;
+          width: 100%;
+        }
+        .firma-rol {
+          font-size: 11pt;
+          font-weight: bold;
+          margin-bottom: 4px;
+        }
+        .firma-nombre {
+          font-size: 11pt;
+          color: #374151;
+        }
+        .portada, .portada-2 {
+          text-align: center;
+          min-height: 600px;
+        }
+        .page-break {
+          page-break-after: always;
+        }
+        .no-print {
+          text-align: center;
+          margin-top: 40px;
+          padding: 20px;
+          background: #f0fdf4;
+          border-radius: 10px;
+        }
+        @media print {
+          .no-print { display: none }
+          body { margin: 0; padding: 20px }
+        }
+      </style>
+    </head>
+    <body>
+      ${contenido}
+
+      <div class="no-print">
+        <p style="font-size:12px; color:#6b7280; margin-bottom:10px">
+          Folio: <strong>${folio}</strong> · Generado por sistema ILIBOM-IN · Inmobiliaria EXAUMY
+        </p>
+        <button onclick="window.print()"
+                style="background:#059669; color:#fff; border:none; padding:12px 28px;
+                       border-radius:8px; font-size:14px; cursor:pointer; font-family:inherit">
+          Imprimir / Guardar como PDF
+        </button>
+      </div>
+    </body>
+    </html>
+  `);
+        ventana.document.close();
+    }
+        
+</script>
+{% endblock %}

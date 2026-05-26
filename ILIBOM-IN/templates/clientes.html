@@ -1,0 +1,333 @@
+{% extends "base.html" %}
+{% block title %}Clientes CRM{% endblock %}
+
+{% block content %}
+<div class="topbar">
+    <div>
+        <div class="page-title">Clientes (CRM)</div>
+        <div class="page-sub">Seguimiento de prospectos </div>
+    </div>
+    <div style="display:flex; gap:10px">
+        <form method="GET" class="search-bar" style="margin:0">
+            <svg width="14" height="14" fill="none" stroke="#9ca3af" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input name="q" placeholder="Buscar cliente..." value="{{ buscar or '' }}">
+        </form>
+        <button class="btn btn-primary" onclick="openModal('modal-cliente')">+ Añadir cliente</button>
+    </div>
+</div>
+
+<!-- KPIs -->
+<div class="kpi-grid" style="grid-template-columns:repeat(4,1fr)">
+    <div class="kpi-card">
+        <div class="kpi-label">Total prospectos</div>
+        <div class="kpi-value">{{ conteos.total or 0 }}</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Nuevos</div>
+        <div class="kpi-value" style="color:#059669">{{ conteos.nuevos or 0 }}</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Con cita agendada</div>
+        <div class="kpi-value" style="color:#3b82f6">{{ conteos.con_cita or 0 }}</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Sin contactar</div>
+        <div class="kpi-value" style="color:#d97706">{{ conteos.sin_contactar or 0 }}</div>
+    </div>
+</div>
+
+<!-- FILTROS -->
+<div class="filtros">
+    <a href="?filtro=Todos" class="btn {% if filtro=='Todos'         %}btn-primary{% else %}btn-secondary{% endif %} btn-sm">Todos</a>
+    <a href="?filtro=Nuevo" class="btn {% if filtro=='Nuevo'         %}btn-primary{% else %}btn-secondary{% endif %} btn-sm">Nuevos</a>
+    <a href="?filtro=Sin contactar" class="btn {% if filtro=='Sin contactar' %}btn-primary{% else %}btn-secondary{% endif %} btn-sm">Sin contactar</a>
+    <a href="?filtro=Contactado" class="btn {% if filtro=='Contactado'    %}btn-primary{% else %}btn-secondary{% endif %} btn-sm">Contactados</a>
+    <a href="?filtro=Cita agendada" class="btn {% if filtro=='Cita agendada' %}btn-primary{% else %}btn-secondary{% endif %} btn-sm">Con cita</a>
+    <a href="?filtro=Activo" class="btn {% if filtro=='Activo'        %}btn-primary{% else %}btn-secondary{% endif %} btn-sm">Activos</a>
+    <a href="?filtro=Ganado" class="btn {% if filtro=='Ganado'        %}btn-primary{% else %}btn-secondary{% endif %} btn-sm">Ganados</a>
+    <a href="?filtro=Perdido" class="btn {% if filtro=='Perdido'       %}btn-primary{% else %}btn-secondary{% endif %} btn-sm">Perdidos</a>
+</div>
+
+<div class="card">
+    {% if clientes and clientes|length > 0 %}
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Cliente</th>
+                    <th>Teléfono</th>
+                    <th>Interés</th>
+                    <th>Presupuesto</th>
+                    <th>Estatus</th>
+                    <th>Asesor</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in clientes %}
+                <tr>
+                    <td>
+                        <div style="display:flex; align-items:center; gap:10px">
+                            <div class="avatar">{{ c.nombre[0]|upper }}</div>
+                            <div>
+                                <div style="font-weight:500">{{ c.nombre }} {{ c.apellido_paterno or '' }}</div>
+                                <div style="font-size:11.5px; color:#6b7280">{{ c.email or 'Sin correo' }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td>{{ c.telefono }}</td>
+                    <td>
+                        {% if c.tipo_inmueble_interes %}
+                        <span class="badge badge-blue">{{ c.tipo_inmueble_interes }}</span>
+                        {% else %}—{% endif %}
+                    </td>
+                    <td>
+                        {% if c.presupuesto_min and c.presupuesto_max %}
+                        ${{ "{:,.0f}".format(c.presupuesto_min) }} – ${{ "{:,.0f}".format(c.presupuesto_max) }}
+                        {% else %}—{% endif %}
+                    </td>
+                    <td>
+                        {% if c.estatus_lead == 'Nuevo' %}<span class="badge badge-green">● {{ c.estatus_lead }}</span>
+                        {% elif c.estatus_lead == 'Sin contactar' %}<span class="badge badge-amber">● {{ c.estatus_lead }}</span>
+                        {% elif c.estatus_lead == 'Contactado' %}<span class="badge badge-blue">● {{ c.estatus_lead }}</span>
+                        {% elif c.estatus_lead == 'Cita agendada' %}<span class="badge badge-purple">● {{ c.estatus_lead }}</span>
+                        {% elif c.estatus_lead == 'Activo' %}<span class="badge badge-green">● {{ c.estatus_lead }}</span>
+                        {% elif c.estatus_lead == 'Ganado' %}<span class="badge badge-green">★ {{ c.estatus_lead }}</span>
+                        {% elif c.estatus_lead == 'Perdido' %}<span class="badge badge-red">● {{ c.estatus_lead }}</span>
+                        {% else %}<span class="badge badge-gray">{{ c.estatus_lead }}</span>{% endif %}
+                    </td>
+                    <td>{{ c.asesor_nombre or 'Sin asignar' }}</td>
+                    <td>
+                        <div class="td-actions">
+                            <a href="{{ url_for('historial_cliente', id=c.id_cliente) }}" class="btn btn-secondary btn-sm">Historial</a>
+
+                            <a href="{{ url_for('editar_cliente', id=c.id_cliente) }}" class="btn btn-secondary btn-sm">Editar</a>
+
+                            <button type="button" class="btn btn-secondary btn-sm"
+                                    onclick="abrirCambioEstatus({{ c.id_cliente }}, '{{ c.nombre }}', '{{ c.estatus_lead }}')">
+                                Estatus
+                            </button>
+
+                            <button type="button" class="btn btn-primary btn-sm" style="background:#25D366"
+                                    onclick="enviarWhatsApp('{{ c.telefono }}','{{ c.nombre }}')">
+                                WA
+                            </button>
+
+                            <button type="button" class="btn btn-secondary btn-sm"
+                                    onclick="abrirSeguimiento({{ c.id_cliente }}, '{{ c.nombre }}')">
+                                Contacto
+                            </button>
+
+                            <form method="POST" action="{{ url_for('baja_cliente', id=c.id_cliente) }}" style="display:inline"
+                                  onsubmit="return confirm('¿Eliminar el cliente {{ c.nombre }}?');">
+                                <button type="submit" class="btn btn-danger btn-sm">Eliminar</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div style="text-align:center; padding:60px 20px; color:#9ca3af">
+        <div style="font-size:48px; opacity:0.4">CLIENTES</div>
+        <div style="margin-top:12px">No hay clientes registrados todavía.</div>
+        <button class="btn btn-primary" style="margin-top:20px" onclick="openModal('modal-cliente')">
+            + Registrar el primer cliente
+        </button>
+    </div>
+    {% endif %}
+</div>
+
+<!-- ══ MODAL: Añadir Cliente (RF-02) ══ -->
+<div class="modal-overlay" id="modal-cliente">
+    <div class="modal-box">
+        <div class="modal-title">Añadir cliente </div>
+        <form method="POST" action="{{ url_for('nuevo_cliente') }}">
+            <div class="form-grid">
+
+                <div class="form-group">
+                    <label>Nombre *</label>
+                    <input type="text" name="nombre" placeholder="Nombre del prospecto" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Apellidos</label>
+                    <input type="text" name="apellido" placeholder="Apellido paterno y materno">
+                </div>
+
+                <div class="form-group">
+                    <label>Teléfono (10 dígitos) * </label>
+                    <input type="tel" name="telefono" maxlength="10"
+                           placeholder="4771234567" oninput="validarTelefono(this)" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Correo electrónico</label>
+                    <input type="email" name="email" placeholder="prospecto@correo.com">
+                </div>
+
+                <div class="form-group">
+                    <label>Tipo de inmueble de interés</label>
+                    <select name="tipo_interes">
+                        <option value="">— Seleccionar —</option>
+                        <option value="Casa">Casa</option>
+                        <option value="Departamento">Departamento</option>
+                        <option value="Local comercial">Local comercial</option>
+                        <option value="Terreno">Terreno</option>
+                        <option value="Bodega">Bodega</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Asesor asignado</label>
+                    <select name="id_asesor">
+                        <option value="">— Sin asignar —</option>
+                        {% for a in asesores %}
+                        <option value="{{ a.id_usuario }}">{{ a.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Presupuesto mínimo (MXN)</label>
+                    <input type="number" step="0.01" name="pres_min" placeholder="0">
+                </div>
+
+                <div class="form-group">
+                    <label>Presupuesto máximo (MXN)</label>
+                    <input type="number" step="0.01" name="pres_max" placeholder="0">
+                </div>
+
+                <div class="form-group form-span2">
+                    <label>Zonas de interés</label>
+                    <input type="text" name="zonas" placeholder="Ej. Lomas, Centro, Campestre">
+                </div>
+
+                <div class="form-group">
+                    <label>Fuente de captación</label>
+                    <select name="fuente">
+                        <option value="Redes sociales">Redes sociales</option>
+                        <option value="Recomendación">Recomendación</option>
+                        <option value="Portal web">Portal web</option>
+                        <option value="Referido">Referido</option>
+                        <option value="Otro">Otro</option>
+                    </select>
+                </div>
+
+                <div class="form-group form-span2">
+                    <label>Notas iniciales</label>
+                    <textarea name="notas" placeholder="Notas del primer contacto, preferencias específicas..."></textarea>
+                </div>
+
+            </div>
+
+            <div class="info-banner info-banner-green" style="margin-top:12px">
+                <strong>Nota:</strong> El sistema verificará que el teléfono o correo no estén duplicados antes de guardar.
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('modal-cliente')">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Guardar cliente</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ══ MODAL: Bitácora de seguimiento (RF-02) ══ -->
+<div class="modal-overlay" id="modal-seguimiento">
+    <div class="modal-box">
+        <div class="modal-title">Registrar contacto — Bitácora CRM</div>
+        <div style="margin-bottom:16px; font-size:13px; color:#6b7280">
+            Cliente: <strong id="seg-nombre">—</strong>
+        </div>
+        <form method="POST" action="{{ url_for('registrar_seguimiento') }}">
+            <input type="hidden" name="id_cliente" id="seg-id-cliente">
+
+            <div class="form-grid">
+                <div class="form-group form-span2">
+                    <label>Canal de contacto *</label>
+                    <select name="canal" required>
+                        <option value="Llamada">Llamada telefónica</option>
+                        <option value="WhatsApp">WhatsApp</option>
+                        <option value="Email">Correo electrónico</option>
+                        <option value="Presencial">Visita presencial</option>
+                        
+                    </select>
+                </div>
+
+                <div class="form-group form-span2">
+                    <label>Descripción del contacto *</label>
+                    <textarea name="descripcion" placeholder="Resumen de la conversación, acuerdos, próximos pasos..." required style="min-height:120px"></textarea>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('modal-seguimiento')">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Guardar en bitácora</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ══ MODAL: Cambiar estatus ══ -->
+<div class="modal-overlay" id="modal-estatus">
+    <div class="modal-box">
+        <div class="modal-title">Cambiar estatus del cliente</div>
+        <div style="margin-bottom:16px; font-size:13px; color:#6b7280">
+            Cliente: <strong id="est-nombre">—</strong> ·
+            Estatus actual: <strong id="est-actual">—</strong>
+        </div>
+        <form method="POST" id="form-estatus">
+            <div class="form-grid">
+                <div class="form-group form-span2">
+                    <label>Nuevo estatus *</label>
+                    <select name="estatus_lead" required>
+                        <option value="Nuevo">Nuevo</option>
+                        <option value="Sin contactar">Sin contactar</option>
+                        <option value="Contactado">Contactado</option>
+                        <option value="Cita agendada">Cita agendada</option>
+                        <option value="Activo">Activo (negociando)</option>
+                        <option value="Ganado">Ganado (cerró trato)</option>
+                        <option value="Perdido"> Perdido</option>
+                    </select>
+                </div>
+                <div class="form-group form-span2">
+                    <label>Motivo del cambio (opcional)</label>
+                    <textarea name="motivo" placeholder="Ej. El cliente confirmó interés y agendó visita"></textarea>
+                </div>
+            </div>
+            <div class="info-banner info-banner-green" style="margin-top:12px">
+                El cambio quedará registrado en el historial del cliente con fecha y usuario.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('modal-estatus')">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Guardar cambio</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function abrirSeguimiento(idCliente, nombre) {
+        document.getElementById('seg-id-cliente').value = idCliente;
+        document.getElementById('seg-nombre').textContent = nombre;
+        openModal('modal-seguimiento');
+    }
+
+    function abrirCambioEstatus(idCliente, nombre, actual) {
+        document.getElementById('est-nombre').textContent = nombre;
+        document.getElementById('est-actual').textContent = actual;
+        document.getElementById('form-estatus').action = "/clientes/cambiar_estatus/" + idCliente;
+        // Pre-seleccionar el estatus actual
+        const select = document.querySelector('#form-estatus select[name="estatus_lead"]');
+        if (select) select.value = actual;
+        openModal('modal-estatus');
+    }
+
+</script>
+{% endblock %}

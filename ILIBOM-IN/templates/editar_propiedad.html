@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}Editar propiedad{% endblock %}
+
+{% block content %}
+<div class="topbar">
+    <div>
+        <div class="page-title">Editar propiedad</div>
+        <div class="page-sub">{{ prop.nombre }} · #{{ "%03d"|format(prop.id_propiedad) }}</div>
+    </div>
+    <div style="display:flex; gap:10px">
+        <a href="{{ url_for('fotos_propiedad', id=prop.id_propiedad) }}" class="btn btn-primary">Gestionar fotos</a>
+        <a href="{{ url_for('propiedades') }}" class="btn btn-secondary">← Volver al inventario</a>
+    </div>
+</div>
+
+<div class="card">
+    <form method="POST">
+        <div class="form-grid">
+
+            <div class="form-group">
+                <label>Nombre / Descripción *</label>
+                <input type="text" name="nombre" value="{{ prop.nombre }}" required>
+            </div>
+
+            <div class="form-group">
+                <label>Tipo de inmueble *</label>
+                <select name="tipo_inmueble" required>
+                    {% for t in ['Casa','Departamento','Local comercial','Terreno','Bodega','Oficina'] %}
+                    <option value="{{ t }}" {% if prop.tipo_inmueble == t %}selected{% endif %}>{{ t }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Precio de venta (MXN)</label>
+                <input type="number" step="0.01" name="precio_venta" value="{{ prop.precio_venta or '' }}">
+            </div>
+
+            <div class="form-group">
+                <label>Precio de renta (MXN)</label>
+                <input type="number" step="0.01" name="precio_renta" value="{{ prop.precio_renta or '' }}">
+            </div>
+
+            <div class="form-group form-span2">
+                <label>Calle *</label>
+                <input type="text" name="calle" value="{{ prop.calle }}" required>
+            </div>
+
+            <div class="form-group">
+                <label>Colonia</label>
+                <input type="text" name="colonia" value="{{ prop.colonia or '' }}">
+            </div>
+
+            <div class="form-group">
+                <label>Municipio</label>
+                <input type="text" name="municipio" value="{{ prop.municipio or 'León' }}">
+            </div>
+
+            <div class="form-group">
+                <label>Metros cuadrados</label>
+                <input type="number" step="0.01" name="metros" value="{{ prop.metros_cuadrados or '' }}">
+            </div>
+
+            <div class="form-group">
+                <label>Recámaras</label>
+                <input type="number" name="recamaras" value="{{ prop.recamaras or 0 }}" min="0">
+            </div>
+
+            <div class="form-group">
+                <label>Baños</label>
+                <input type="number" name="banos" value="{{ prop.banos or 0 }}" min="0">
+            </div>
+
+            <div class="form-group">
+                <label>Origen de captación *</label>
+                <select name="origen_captacion" required>
+                    {% for c in ['Redes sociales','Recomendación','Lona','Portal web','Referido','Otro'] %}
+                    <option value="{{ c }}" {% if prop.origen_captacion == c %}selected{% endif %}>{{ c }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Asesor asignado *</label>
+                <select name="id_asesor" required>
+                    {% for a in asesores %}
+                    <option value="{{ a.id_usuario }}" {% if prop.id_asesor == a.id_usuario %}selected{% endif %}>{{ a.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Estatus *</label>
+                <select name="estatus" required>
+                    {% for e in ['Disponible','Apartada','Vendida','Inactiva'] %}
+                    <option value="{{ e }}" {% if prop.estatus == e %}selected{% endif %}>{{ e }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group form-span2">
+                <label>Notas</label>
+                <textarea name="notas">{{ prop.notas or '' }}</textarea>
+            </div>
+
+        </div>
+
+        <div class="info-banner info-banner-amber" style="margin-top:16px">
+            <strong>Atención:</strong> Los cambios se sobrescriben en la base de datos al guardar.
+        </div>
+
+        <div style="display:flex; gap:10px; margin-top:20px; justify-content:flex-end">
+            <a href="{{ url_for('propiedades') }}" class="btn btn-secondary">Cancelar</a>
+            <button type="submit" class="btn btn-primary">Guardar cambios</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
